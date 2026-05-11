@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Pages
+name: Deploy to Cloudflare
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    needs: []
     permissions:
       contents: read
       deployments: write
@@ -27,12 +26,10 @@ jobs:
 
       - name: Build frontend
         run: pnpm build
-        env:
-          VITE_WS_URL: ${{ vars.VITE_WS_URL }}
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy Worker + Assets
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=mrwhite
+          command: deploy

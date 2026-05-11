@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { wordPairs } from './word-pairs.js';
 import type {
   GameState,
@@ -39,7 +38,7 @@ export function addPlayer(game: GameState, name: string, playerId?: string): Pla
   if (game.phase !== 'lobby') return null;
   if (game.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) return null;
 
-  const id = playerId || uuidv4();
+  const id = playerId || crypto.randomUUID();
   const existing = game.players.find((p) => p.id === id);
   if (existing) {
     existing.isConnected = true;

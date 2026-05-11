@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ClientGameState, ServerMessage, ClientMessage } from '../lib/types';
 
-const WS_URL = import.meta.env.VITE_WS_URL || `ws://${window.location.host}/ws`;
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_URL = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
 
 function sendMessage(ws: WebSocket | null, msg: ClientMessage | Record<string, unknown>) {
   if (ws?.readyState === WebSocket.OPEN) {

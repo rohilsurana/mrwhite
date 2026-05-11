@@ -18,7 +18,8 @@ A real-time multiplayer party game where players try to identify Mr. White — t
 ## Tech Stack
 
 - **Frontend:** Vite + React 19 + TypeScript + Tailwind CSS v4 + Framer Motion
-- **Backend:** Node.js + Express + ws (WebSocket)
+- **Backend (Node.js):** Express + ws (WebSocket) — for VM deployment
+- **Backend (Cloudflare):** Workers + Durable Objects — fully serverless
 - **State:** In-memory (no database)
 
 ## Development
@@ -28,36 +29,47 @@ pnpm install
 pnpm dev
 ```
 
-This starts Vite dev server on `http://localhost:5173` and the WebSocket backend on port 3001. The Vite proxy forwards `/ws` to the backend.
+Starts Vite dev server on `http://localhost:5173` and the Node.js WebSocket backend on port 3001.
 
-## Production Build
+To test with the Cloudflare Worker locally:
 
 ```bash
-pnpm build          # builds the frontend
-pnpm build:server   # compiles the server
-pnpm start          # serves frontend + WebSocket from one process
+pnpm dev:cf
 ```
 
 ## Deployment
 
-### VM / VPS
+### Cloudflare (recommended)
 
-Build and run `node dist-server/index.js`. The server serves the built frontend and WebSocket on a single port (default 3001, configurable via `PORT` env var).
-
-### Cloudflare Pages + VM
-
-Deploy the `dist/` folder to Cloudflare Pages for the static frontend. Set `VITE_WS_URL` at build time to point to your WebSocket backend:
+Deploys the frontend as static assets and the WebSocket backend as a Worker with Durable Objects — fully on Cloudflare, no VM needed.
 
 ```bash
-VITE_WS_URL=wss://your-server.example.com/ws pnpm build
+pnpm deploy
 ```
+
+Or via CI: push to `main` triggers the deploy workflow. Add these GitHub secrets:
+
+- `CLOUDFLARE_API_TOKEN` — [Create one](https://dash.cloudflare.com/profile/api-tokens) with "Edit Cloudflare Workers" permissions
+- `CLOUDFLARE_ACCOUNT_ID` — found in your Cloudflare dashboard sidebar
+
+### VM / VPS
+
+```bash
+pnpm build && pnpm build:server
+node dist-server/index.js
+```
+
+Serves frontend + WebSocket on a single port (default 3001, configurable via `PORT`).
 
 ## Project Structure
 
 ```
-server/           # Express + WebSocket backend
-  index.ts        # Server entry point
-  game-engine.ts  # Game state machine
+worker/           # Cloudflare Worker + Durable Object backend
+  index.ts        # Worker entry point, routes /ws to Durable Object
+  game-room.ts    # Durable Object with WebSocket game handling
+server/           # Node.js backend (VM deployment)
+  index.ts        # Express + ws server entry point
+  game-engine.ts  # Game state machine (shared with worker)
   ws-handler.ts   # WebSocket message routing
   word-pairs.ts   # 70 word pairs across 6 categories
 src/              # Vite React frontend
