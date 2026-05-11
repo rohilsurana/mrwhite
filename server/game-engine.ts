@@ -418,7 +418,7 @@ export function kickPlayer(game: GameState, hostId: string, targetId: string): '
   }
 
   const mrWhitesAlive = game.players.filter((p) => p.isAlive && p.role === 'mr_white');
-  if (mrWhitesAlive.length === 0 && game.phase !== 'lobby' && game.phase !== 'game_over') {
+  if (mrWhitesAlive.length === 0 && game.phase !== 'game_over') {
     game.winner = 'players';
     game.phase = 'game_over';
   }
