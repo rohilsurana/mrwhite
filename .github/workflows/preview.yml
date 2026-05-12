@@ -28,9 +28,8 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
-      - name: Prepare preview config
-        run: |
-          sed -i '/routes/,/]/d' wrangler.toml
+      - name: Strip custom domain for preview
+        run: sed -i '/routes/,/]/d' wrangler.toml
 
       - name: Deploy preview
         id: deploy
@@ -39,22 +38,22 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --name mrwhite-pr-${{ github.event.pull_request.number }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment preview URL
         uses: actions/github-script@v7
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
-            const deployUrl = '${{ steps.deploy.outputs.deployment-url }}';
-            const fallbackUrl = `https://mrwhite-pr-${prNumber}.${context.repo.owner}.workers.dev`;
-            const url = deployUrl || fallbackUrl;
-            const body = `**Preview deployed:** ${url}`;
+            const url = '${{ steps.deploy.outputs.deployment-url }}';
+            if (!url) return;
+            const body = `**Preview:** ${url}`;
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
             });
-            const existing = comments.find(c => c.body?.includes('Preview deployed:'));
+            const existing = comments.find(c => c.body?.startsWith('**Preview:**'));
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
