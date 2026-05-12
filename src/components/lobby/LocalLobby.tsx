@@ -19,6 +19,29 @@ interface LocalLobbyProps {
   onStartGame: () => void;
 }
 
+const STORAGE_KEY = 'mr_white_saved_names';
+
+function getSavedNames(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveName(name: string): void {
+  const names = getSavedNames();
+  if (!names.some((n) => n.toLowerCase() === name.toLowerCase())) {
+    names.push(name);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
+  }
+}
+
+function removeSavedName(name: string): void {
+  const names = getSavedNames().filter((n) => n.toLowerCase() !== name.toLowerCase());
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
+}
+
 const timerOptions = [
   { label: 'Off', value: 0 },
   { label: '30s', value: 30 },
@@ -28,14 +51,29 @@ const timerOptions = [
 
 export function LocalLobby({ players, settings, clueMode, onClueModeChange, onAddPlayer, onRemovePlayer, onUpdateSettings, onStartGame }: LocalLobbyProps) {
   const [name, setName] = useState('');
+  const [savedNames, setSavedNames] = useState<string[]>(getSavedNames);
   const maxSpies = Math.max(0, players.length - 2);
   const canStart = players.length >= 3;
+
+  const currentNames = new Set(players.map((p) => p.name.toLowerCase()));
+  const availableSaved = savedNames.filter((n) => !currentNames.has(n.toLowerCase()));
 
   const handleAdd = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    saveName(name.trim());
+    setSavedNames(getSavedNames());
     onAddPlayer(name.trim());
     setName('');
+  };
+
+  const handleAddSaved = (savedName: string) => {
+    onAddPlayer(savedName);
+  };
+
+  const handleDeleteSaved = (savedName: string) => {
+    removeSavedName(savedName);
+    setSavedNames(getSavedNames());
   };
 
   return (
@@ -51,6 +89,31 @@ export function LocalLobby({ players, settings, clueMode, onClueModeChange, onAd
           />
           <Button type="submit" disabled={!name.trim()}>Add</Button>
         </form>
+
+        {availableSaved.length > 0 && (
+          <div className="mb-4">
+            <div className="text-xs text-white/30 mb-2">Quick add</div>
+            <div className="flex flex-wrap gap-2">
+              {availableSaved.map((n) => (
+                <div key={n} className="group flex items-center gap-1 pl-3 pr-1 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-violet-500/30 transition-colors">
+                  <button
+                    onClick={() => handleAddSaved(n)}
+                    className="text-sm text-white/70 hover:text-white transition-colors cursor-pointer"
+                  >
+                    {n}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSaved(n)}
+                    className="w-5 h-5 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors cursor-pointer rounded-full text-xs"
+                    title="Remove from saved"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="text-sm text-white/50 mb-2">{players.length} player{players.length !== 1 ? 's' : ''}</div>
         <AnimatePresence mode="popLayout">
