@@ -9,26 +9,22 @@ interface PassDeviceProps {
 }
 
 export function PassDevice({ playerName, phase, onReady }: PassDeviceProps) {
-  const label = phase === 'word_reveal'
-    ? 'to see your word'
-    : 'to cast your vote';
+  const label = phase === 'word_reveal' ? 'to see your word' : 'to cast your vote';
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 px-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="glass p-8 rounded-2xl max-w-sm w-full text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 max-w-xs w-full text-center"
       >
-        <div className="text-sm text-white/40 mb-4">Pass the device to</div>
-        <div className="flex justify-center mb-4">
+        <div className="text-xs text-zinc-500 mb-4">Pass the device to</div>
+        <div className="flex justify-center mb-3">
           <PlayerAvatar name={playerName} size="lg" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">{playerName}</h2>
-        <p className="text-white/40 mb-6">{label}</p>
-        <Button onClick={onReady} className="w-full">
-          I'm {playerName}
-        </Button>
+        <h2 className="text-lg font-semibold text-zinc-200 mb-1">{playerName}</h2>
+        <p className="text-xs text-zinc-500 mb-5">{label}</p>
+        <Button onClick={onReady} className="w-full">I'm {playerName}</Button>
       </motion.div>
     </div>
   );
