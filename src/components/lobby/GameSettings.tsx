@@ -1,3 +1,5 @@
+import { ToggleGroup } from '@base-ui/react/toggle-group';
+import { Toggle } from '@base-ui/react/toggle';
 import { GlassCard } from '../ui/GlassCard';
 import { Button } from '../ui/Button';
 import type { GameSettings as Settings, ClientMessage } from '../../lib/types';
@@ -16,6 +18,8 @@ const timerOptions = [
   { label: '90s', value: 90 },
 ];
 
+const toggleCls = 'px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer text-zinc-400 data-[pressed]:bg-zinc-100 data-[pressed]:text-zinc-900';
+
 export function GameSettings({ settings, playerCount, onSend, onSendRaw }: GameSettingsProps) {
   const maxSpies = Math.max(0, playerCount - 2);
   const canStart = playerCount >= 3;
@@ -25,64 +29,41 @@ export function GameSettings({ settings, playerCount, onSend, onSendRaw }: GameS
     onSendRaw({ type: 'update_settings', settings: { spyCount: next } });
   };
 
-  const updateTimer = (value: number) => {
-    onSendRaw({ type: 'update_settings', settings: { describeTimerSeconds: value } });
-  };
-
   return (
     <GlassCard className="w-full max-w-sm">
-      <h3 className="text-lg font-semibold text-white/90 mb-4">Game Settings</h3>
-
+      <h3 className="text-sm font-semibold text-zinc-300 mb-4">Settings</h3>
       <div className="flex flex-col gap-5">
         <div>
-          <label className="text-sm text-white/50 block mb-2">Spies</label>
+          <label className="text-xs text-zinc-500 block mb-2">Spies</label>
           <div className="flex items-center gap-3 justify-center">
-            <button
-              onClick={() => updateSpy(-1)}
-              disabled={settings.spyCount <= 0}
-              className="w-10 h-10 rounded-lg bg-white/10 text-white font-bold hover:bg-white/15 disabled:opacity-30 transition-colors cursor-pointer"
-            >
-              -
-            </button>
-            <span className="text-2xl font-bold text-white w-10 text-center">{settings.spyCount}</span>
-            <button
-              onClick={() => updateSpy(1)}
-              disabled={settings.spyCount >= maxSpies}
-              className="w-10 h-10 rounded-lg bg-white/10 text-white font-bold hover:bg-white/15 disabled:opacity-30 transition-colors cursor-pointer"
-            >
-              +
-            </button>
+            <button onClick={() => updateSpy(-1)} disabled={settings.spyCount <= 0}
+              className="w-8 h-8 rounded-md bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 disabled:opacity-25 transition-colors cursor-pointer">-</button>
+            <span className="text-xl font-semibold text-zinc-100 w-8 text-center">{settings.spyCount}</span>
+            <button onClick={() => updateSpy(1)} disabled={settings.spyCount >= maxSpies}
+              className="w-8 h-8 rounded-md bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 disabled:opacity-25 transition-colors cursor-pointer">+</button>
           </div>
-          {maxSpies === 0 && (
-            <p className="text-xs text-white/30 mt-1">Need 4+ players for spies</p>
-          )}
+          {maxSpies === 0 && <p className="text-xs text-zinc-600 mt-1 text-center">Need 4+ players for spies</p>}
         </div>
 
         <div>
-          <label className="text-sm text-white/50 block mb-2">Turn Timer</label>
-          <div className="flex gap-2 justify-center">
+          <label className="text-xs text-zinc-500 block mb-2">Turn timer</label>
+          <ToggleGroup
+            value={[String(settings.describeTimerSeconds)]}
+            onValueChange={(val) => {
+              if (val.length > 0) onSendRaw({ type: 'update_settings', settings: { describeTimerSeconds: Number(val[0]) } });
+            }}
+            className="flex gap-1 justify-center"
+          >
             {timerOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => updateTimer(opt.value)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                  settings.describeTimerSeconds === opt.value
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-white/10 text-white/60 hover:bg-white/15'
-                }`}
-              >
+              <Toggle key={opt.value} value={String(opt.value)} className={toggleCls}>
                 {opt.label}
-              </button>
+              </Toggle>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
 
-        <Button
-          onClick={() => onSend({ type: 'start_game' })}
-          disabled={!canStart}
-          className="mt-2"
-        >
-          {canStart ? 'Start Game' : `Need ${3 - playerCount} more player${3 - playerCount !== 1 ? 's' : ''}`}
+        <Button onClick={() => onSend({ type: 'start_game' })} disabled={!canStart} className="w-full mt-1">
+          {canStart ? 'Start Game' : `Need ${3 - playerCount} more`}
         </Button>
       </div>
     </GlassCard>

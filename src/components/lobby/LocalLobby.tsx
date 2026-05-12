@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ToggleGroup } from '@base-ui/react/toggle-group';
+import { Toggle } from '@base-ui/react/toggle';
 import { GlassCard } from '../ui/GlassCard';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -49,6 +51,8 @@ const timerOptions = [
   { label: '90s', value: 90 },
 ];
 
+const toggleCls = 'px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer text-zinc-400 data-[pressed]:bg-zinc-100 data-[pressed]:text-zinc-900';
+
 export function LocalLobby({ players, settings, clueMode, onClueModeChange, onAddPlayer, onRemovePlayer, onUpdateSettings, onStartGame }: LocalLobbyProps) {
   const [name, setName] = useState('');
   const [savedNames, setSavedNames] = useState<string[]>(getSavedNames);
@@ -67,139 +71,79 @@ export function LocalLobby({ players, settings, clueMode, onClueModeChange, onAd
     setName('');
   };
 
-  const handleAddSaved = (savedName: string) => {
-    onAddPlayer(savedName);
-  };
-
   const handleDeleteSaved = (savedName: string) => {
     removeSavedName(savedName);
     setSavedNames(getSavedNames());
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full px-4">
+    <div className="flex flex-col items-center gap-5 w-full px-4">
       <GlassCard className="w-full max-w-sm">
-        <form onSubmit={handleAdd} className="flex gap-3 mb-4">
-          <Input
-            placeholder="Player name..."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={20}
-            autoFocus
-          />
+        <form onSubmit={handleAdd} className="flex gap-2 mb-4">
+          <Input placeholder="Player name..." value={name} onChange={(e) => setName(e.target.value)} maxLength={20} autoFocus />
           <Button type="submit" disabled={!name.trim()}>Add</Button>
         </form>
 
         {availableSaved.length > 0 && (
           <div className="mb-4">
-            <div className="text-xs text-white/30 mb-2">Quick add</div>
-            <div className="flex flex-wrap gap-2">
+            <div className="text-xs text-zinc-500 mb-2">Quick add</div>
+            <div className="flex flex-wrap gap-1.5">
               {availableSaved.map((n) => (
-                <div key={n} className="group flex items-center gap-1 pl-3 pr-1 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-violet-500/30 transition-colors">
-                  <button
-                    onClick={() => handleAddSaved(n)}
-                    className="text-sm text-white/70 hover:text-white transition-colors cursor-pointer"
-                  >
-                    {n}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteSaved(n)}
-                    className="w-5 h-5 flex items-center justify-center text-white/20 hover:text-red-400 transition-colors cursor-pointer rounded-full text-xs"
-                    title="Remove from saved"
-                  >
-                    &times;
-                  </button>
+                <div key={n} className="group flex items-center gap-0.5 pl-2.5 pr-1 py-1 rounded-full bg-zinc-800 border border-zinc-700 hover:border-zinc-500 transition-colors">
+                  <button onClick={() => onAddPlayer(n)} className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer">{n}</button>
+                  <button onClick={() => handleDeleteSaved(n)} className="w-4 h-4 flex items-center justify-center text-zinc-600 hover:text-red-400 transition-colors cursor-pointer text-xs">&times;</button>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="text-sm text-white/50 mb-2">{players.length} player{players.length !== 1 ? 's' : ''}</div>
+        <div className="text-xs text-zinc-500 mb-2">{players.length} player{players.length !== 1 ? 's' : ''}</div>
         <AnimatePresence mode="popLayout">
           {players.map((p) => (
-            <motion.div
-              key={p.id}
-              layout
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/5 mb-2"
-            >
-              <PlayerAvatar name={p.name} />
-              <span className="text-white font-medium flex-1 truncate">{p.name}</span>
-              <button
-                onClick={() => onRemovePlayer(p.id)}
-                className="text-white/20 hover:text-red-400 transition-colors cursor-pointer text-sm"
-              >
-                &times;
-              </button>
+            <motion.div key={p.id} layout initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-zinc-800/50 border border-zinc-800 mb-1.5">
+              <PlayerAvatar name={p.name} size="sm" />
+              <span className="text-sm text-zinc-200 flex-1 truncate">{p.name}</span>
+              <button onClick={() => onRemovePlayer(p.id)} className="text-zinc-600 hover:text-red-400 transition-colors cursor-pointer text-sm">&times;</button>
             </motion.div>
           ))}
         </AnimatePresence>
       </GlassCard>
 
       <GlassCard className="w-full max-w-sm">
-        <h3 className="text-lg font-semibold text-white/90 mb-4">Game Settings</h3>
+        <h3 className="text-sm font-semibold text-zinc-300 mb-4">Settings</h3>
         <div className="flex flex-col gap-5">
           <div>
-            <label className="text-sm text-white/50 block mb-2">Spies</label>
+            <label className="text-xs text-zinc-500 block mb-2">Spies</label>
             <div className="flex items-center gap-3 justify-center">
-              <button
-                onClick={() => onUpdateSettings({ spyCount: settings.spyCount - 1 })}
-                disabled={settings.spyCount <= 0}
-                className="w-10 h-10 rounded-lg bg-white/10 text-white font-bold hover:bg-white/15 disabled:opacity-30 transition-colors cursor-pointer"
-              >-</button>
-              <span className="text-2xl font-bold text-white w-10 text-center">{settings.spyCount}</span>
-              <button
-                onClick={() => onUpdateSettings({ spyCount: settings.spyCount + 1 })}
-                disabled={settings.spyCount >= maxSpies}
-                className="w-10 h-10 rounded-lg bg-white/10 text-white font-bold hover:bg-white/15 disabled:opacity-30 transition-colors cursor-pointer"
-              >+</button>
+              <button onClick={() => onUpdateSettings({ spyCount: settings.spyCount - 1 })} disabled={settings.spyCount <= 0}
+                className="w-8 h-8 rounded-md bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 disabled:opacity-25 transition-colors cursor-pointer">-</button>
+              <span className="text-xl font-semibold text-zinc-100 w-8 text-center">{settings.spyCount}</span>
+              <button onClick={() => onUpdateSettings({ spyCount: settings.spyCount + 1 })} disabled={settings.spyCount >= maxSpies}
+                className="w-8 h-8 rounded-md bg-zinc-800 text-zinc-300 text-sm font-medium hover:bg-zinc-700 disabled:opacity-25 transition-colors cursor-pointer">+</button>
             </div>
-            {maxSpies === 0 && <p className="text-xs text-white/30 mt-1">Need 4+ players for spies</p>}
+            {maxSpies === 0 && <p className="text-xs text-zinc-600 mt-1 text-center">Need 4+ players</p>}
           </div>
 
           <div>
-            <label className="text-sm text-white/50 block mb-2">Turn Timer</label>
-            <div className="flex gap-2 justify-center">
-              {timerOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => onUpdateSettings({ describeTimerSeconds: opt.value })}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                    settings.describeTimerSeconds === opt.value
-                      ? 'bg-violet-600 text-white'
-                      : 'bg-white/10 text-white/60 hover:bg-white/15'
-                  }`}
-                >{opt.label}</button>
-              ))}
-            </div>
+            <label className="text-xs text-zinc-500 block mb-2">Turn timer</label>
+            <ToggleGroup value={[String(settings.describeTimerSeconds)]} onValueChange={(val) => { if (val.length > 0) onUpdateSettings({ describeTimerSeconds: Number(val[0]) }); }} className="flex gap-1 justify-center">
+              {timerOptions.map((opt) => (<Toggle key={opt.value} value={String(opt.value)} className={toggleCls}>{opt.label}</Toggle>))}
+            </ToggleGroup>
           </div>
 
           <div>
-            <label className="text-sm text-white/50 block mb-2">Clues</label>
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={() => onClueModeChange('verbal')}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                  clueMode === 'verbal' ? 'bg-violet-600 text-white' : 'bg-white/10 text-white/60 hover:bg-white/15'
-                }`}
-              >Verbal</button>
-              <button
-                onClick={() => onClueModeChange('typed')}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                  clueMode === 'typed' ? 'bg-violet-600 text-white' : 'bg-white/10 text-white/60 hover:bg-white/15'
-                }`}
-              >Typed</button>
-            </div>
-            <p className="text-xs text-white/30 mt-1 text-center">
-              {clueMode === 'verbal' ? 'Describe out loud, press Done' : 'Type your clue on the device'}
-            </p>
+            <label className="text-xs text-zinc-500 block mb-2">Clues</label>
+            <ToggleGroup value={[clueMode]} onValueChange={(val) => { if (val.length > 0) onClueModeChange(val[0] as ClueMode); }} className="flex gap-1 justify-center">
+              <Toggle value="verbal" className={toggleCls}>Verbal</Toggle>
+              <Toggle value="typed" className={toggleCls}>Typed</Toggle>
+            </ToggleGroup>
+            <p className="text-xs text-zinc-600 mt-1.5 text-center">{clueMode === 'verbal' ? 'Describe out loud' : 'Type clues on the device'}</p>
           </div>
 
-          <Button onClick={onStartGame} disabled={!canStart} className="mt-2">
-            {canStart ? 'Start Game' : `Need ${3 - players.length} more player${3 - players.length !== 1 ? 's' : ''}`}
+          <Button onClick={onStartGame} disabled={!canStart} className="w-full mt-1">
+            {canStart ? 'Start Game' : `Need ${3 - players.length} more`}
           </Button>
         </div>
       </GlassCard>

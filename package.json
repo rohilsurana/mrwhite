@@ -17,6 +17,7 @@
     "dev:cf": "pnpm build && wrangler dev"
   },
   "dependencies": {
+    "@base-ui/react": "^1.4.1",
     "express": "^5.2.1",
     "framer-motion": "^12.38.0",
     "react": "^19.2.5",
