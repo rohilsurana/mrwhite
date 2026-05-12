@@ -2,6 +2,10 @@ name = "mrwhite"
 main = "worker/index.ts"
 compatibility_date = "2025-04-01"
 
+routes = [
+  { pattern = "mrwhite.rohilsurana.com", custom_domain = true }
+]
+
 [assets]
 directory = "dist"
 not_found_handling = "single-page-application"
