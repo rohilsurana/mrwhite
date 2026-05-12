@@ -514,6 +514,9 @@ export function getClientState(game: GameState, playerId: string): Record<string
       winner: game.winner,
       settings: game.settings,
       timerSeconds: null,
+      words: isGameOver && game.currentWordPair
+        ? { normal: game.currentWordPair.normal, spy: game.currentWordPair.spy }
+        : null,
     },
   };
 }

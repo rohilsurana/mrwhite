@@ -171,7 +171,12 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
         {gameState && isInGame && (
           <>
             {gameState.phase === 'lobby' && effectiveCode && (
-              <GameCodeDisplay code={effectiveCode} />
+              <>
+                <GameCodeDisplay code={effectiveCode} />
+                <div className="mb-4">
+                  <BackButton onBack={onBack} />
+                </div>
+              </>
             )}
             <GamePhaseRenderer state={gameState} onSend={send} onSendRaw={sendRaw} isOnline />
           </>

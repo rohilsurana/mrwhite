@@ -68,6 +68,7 @@ export interface ClientGameState {
   winner: 'mr_white' | 'players' | null;
   settings: GameSettings;
   timerSeconds: number | null;
+  words: { normal: string; spy: string } | null;
 }
 
 export type ClientMessage =

@@ -121,6 +121,9 @@ function toClientState(state: LocalState): ClientGameState {
     winner: state.winner,
     settings: state.settings,
     timerSeconds: null,
+    words: state.phase === 'game_over' && state.wordPairIndex !== null
+      ? { normal: wordPairs[state.wordPairIndex].normal, spy: wordPairs[state.wordPairIndex].spy }
+      : null,
   };
 }
 

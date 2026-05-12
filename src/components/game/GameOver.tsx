@@ -27,6 +27,24 @@ export function GameOver({ state, onSend }: { state: ClientGameState; onSend: (m
         </h1>
       </motion.div>
 
+      {state.words && (
+        <GlassCard>
+          <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-3">The Words</h3>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+              <span className="text-sm text-white/50">Civilian word</span>
+              <span className="text-base font-semibold text-white">{state.words.normal}</span>
+            </div>
+            {state.players.some((p) => p.revealedRole === 'spy') && (
+              <div className="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                <span className="text-sm text-white/50">Spy word</span>
+                <span className="text-base font-semibold text-amber-400">{state.words.spy}</span>
+              </div>
+            )}
+          </div>
+        </GlassCard>
+      )}
+
       <GlassCard>
         <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-4">Roles Revealed</h3>
         <div className="flex flex-col gap-3">
