@@ -104,6 +104,7 @@ function toClientState(state: LocalState): ClientGameState {
   }));
 
   return {
+    gameCode: '',
     phase: state.phase,
     players,
     myRole: viewer?.role ?? null,

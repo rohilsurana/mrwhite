@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws';
 import type { GameState } from './types.js';
 import {
   createGame,
+  generateGameCode,
   addPlayer,
   reconnectPlayer,
   removePlayer,
@@ -17,13 +18,27 @@ import {
   getClientState,
 } from './game-engine.js';
 
-const game: GameState = createGame();
-const connections = new Map<WebSocket, string>();
+const games = new Map<string, GameState>();
+const connections = new Map<WebSocket, { gameCode: string; playerId: string }>();
 
-function broadcast(): void {
-  for (const [ws, playerId] of connections) {
-    if (ws.readyState === ws.OPEN) {
-      ws.send(JSON.stringify(getClientState(game, playerId)));
+function getOrCreateGame(code: string | null): GameState {
+  if (code) {
+    const existing = games.get(code);
+    if (existing) return existing;
+  }
+  let gameCode = code || generateGameCode();
+  while (games.has(gameCode)) gameCode = generateGameCode();
+  const game = createGame(gameCode);
+  games.set(gameCode, game);
+  return game;
+}
+
+function broadcastGame(gameCode: string): void {
+  const game = games.get(gameCode);
+  if (!game) return;
+  for (const [ws, info] of connections) {
+    if (info.gameCode === gameCode && ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify(getClientState(game, info.playerId)));
     }
   }
 }
@@ -38,7 +53,10 @@ function sendError(ws: WebSocket, message: string): void {
   sendTo(ws, { type: 'error', message });
 }
 
-export function handleConnection(ws: WebSocket): void {
+export function handleConnection(ws: WebSocket, gameCode: string | null): void {
+  const game = getOrCreateGame(gameCode);
+  const connInfo = { gameCode: game.gameCode, playerId: '' };
+
   ws.on('message', (raw) => {
     let msg: Record<string, unknown>;
     try {
@@ -48,37 +66,44 @@ export function handleConnection(ws: WebSocket): void {
       return;
     }
 
+    const currentGame = games.get(connInfo.gameCode);
+    if (!currentGame) {
+      sendError(ws, 'Game not found');
+      return;
+    }
+
     switch (msg.type) {
       case 'join':
-        handleJoin(ws, msg);
+        handleJoin(ws, msg, currentGame, connInfo);
         break;
       case 'update_settings':
-        handleUpdateSettings(ws, msg);
+        handleUpdateSettings(ws, msg, currentGame, connInfo);
         break;
       case 'start_game':
-        handleStartGame(ws);
+        handleStartGame(ws, currentGame, connInfo);
         break;
       case 'word_seen':
-        handleWordSeen(ws);
+        handleWordSeen(currentGame, connInfo);
         break;
       case 'submit_description':
-        handleSubmitDescription(ws, msg);
+        handleSubmitDescription(ws, msg, currentGame, connInfo);
         break;
       case 'vote':
-        handleVote(ws, msg);
+        handleVote(ws, msg, currentGame, connInfo);
         break;
       case 'continue_after_vote':
-        handleContinueAfterVote();
+        processVoteResult(currentGame);
+        broadcastGame(connInfo.gameCode);
         break;
       case 'guess_word':
-        handleGuessWord(ws, msg);
+        handleGuessWord(ws, msg, currentGame, connInfo);
         break;
       case 'play_again':
       case 'reset_game':
-        handlePlayAgain(ws);
+        handlePlayAgain(ws, currentGame, connInfo);
         break;
       case 'kick_player':
-        handleKick(ws, msg);
+        handleKick(ws, msg, currentGame, connInfo);
         break;
       default:
         sendError(ws, 'Unknown message type');
@@ -86,16 +111,20 @@ export function handleConnection(ws: WebSocket): void {
   });
 
   ws.on('close', () => {
-    const playerId = connections.get(ws);
-    if (playerId) {
-      removePlayer(game, playerId);
-      connections.delete(ws);
-      broadcast();
+    const info = connections.get(ws);
+    if (info?.playerId) {
+      const g = games.get(info.gameCode);
+      if (g) {
+        removePlayer(g, info.playerId);
+        broadcastGame(info.gameCode);
+        if (g.players.length === 0) games.delete(info.gameCode);
+      }
     }
+    connections.delete(ws);
   });
 }
 
-function handleJoin(ws: WebSocket, msg: Record<string, unknown>): void {
+function handleJoin(ws: WebSocket, msg: Record<string, unknown>, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
   const name = msg.name as string;
   const existingId = msg.playerId as string | undefined;
 
@@ -107,8 +136,9 @@ function handleJoin(ws: WebSocket, msg: Record<string, unknown>): void {
   if (existingId) {
     const reconnected = reconnectPlayer(game, existingId);
     if (reconnected) {
-      connections.set(ws, existingId);
-      broadcast();
+      connInfo.playerId = existingId;
+      connections.set(ws, connInfo);
+      broadcastGame(connInfo.gameCode);
       return;
     }
   }
@@ -123,137 +153,107 @@ function handleJoin(ws: WebSocket, msg: Record<string, unknown>): void {
     return;
   }
 
-  connections.set(ws, player.id);
-  broadcast();
+  connInfo.playerId = player.id;
+  connections.set(ws, connInfo);
+  broadcastGame(connInfo.gameCode);
 }
 
-function handleUpdateSettings(ws: WebSocket, msg: Record<string, unknown>): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
+function handleUpdateSettings(ws: WebSocket, msg: Record<string, unknown>, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
   const settings = msg.settings as Record<string, unknown>;
   if (!settings) return;
-
-  if (!updateSettings(game, playerId, settings as { spyCount?: number; describeTimerSeconds?: number })) {
+  if (!updateSettings(game, connInfo.playerId, settings as { spyCount?: number; describeTimerSeconds?: number })) {
     sendError(ws, 'Only the host can change settings');
     return;
   }
-  broadcast();
+  broadcastGame(connInfo.gameCode);
 }
 
-function handleStartGame(ws: WebSocket): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
-  if (!startGame(game, playerId)) {
+function handleStartGame(ws: WebSocket, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
+  if (!startGame(game, connInfo.playerId)) {
     sendError(ws, 'Cannot start game. Need at least 3 players.');
     return;
   }
-  broadcast();
+  broadcastGame(connInfo.gameCode);
 }
 
-function handleWordSeen(ws: WebSocket): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
-  markWordSeen(game, playerId);
-  broadcast();
+function handleWordSeen(game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
+  markWordSeen(game, connInfo.playerId);
+  broadcastGame(connInfo.gameCode);
 }
 
-function handleSubmitDescription(ws: WebSocket, msg: Record<string, unknown>): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
+function handleSubmitDescription(ws: WebSocket, msg: Record<string, unknown>, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
   const text = msg.text as string;
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
     sendError(ws, 'Description cannot be empty');
     return;
   }
-
-  if (!submitDescription(game, playerId, text)) {
+  if (!submitDescription(game, connInfo.playerId, text)) {
     sendError(ws, "It's not your turn");
     return;
   }
-  broadcast();
+  broadcastGame(connInfo.gameCode);
 }
 
-function handleVote(ws: WebSocket, msg: Record<string, unknown>): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
+function handleVote(ws: WebSocket, msg: Record<string, unknown>, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
   const targetId = msg.targetId as string;
   if (!targetId) {
     sendError(ws, 'Must select a player to vote for');
     return;
   }
-
-  if (!submitVote(game, playerId, targetId)) {
+  if (!submitVote(game, connInfo.playerId, targetId)) {
     sendError(ws, 'Invalid vote');
     return;
   }
-  broadcast();
+  broadcastGame(connInfo.gameCode);
 }
 
-function handleContinueAfterVote(): void {
-  processVoteResult(game);
-  broadcast();
-}
-
-function handleGuessWord(ws: WebSocket, msg: Record<string, unknown>): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
+function handleGuessWord(ws: WebSocket, msg: Record<string, unknown>, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
   const word = msg.word as string;
   if (!word || typeof word !== 'string') {
     sendError(ws, 'Must provide a guess');
     return;
   }
-
-  if (!guessWord(game, playerId, word)) {
+  if (!guessWord(game, connInfo.playerId, word)) {
     sendError(ws, 'You cannot guess right now');
     return;
   }
-  broadcast();
+  broadcastGame(connInfo.gameCode);
 }
 
-function handlePlayAgain(ws: WebSocket): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
-  if (!resetGame(game, playerId)) {
+function handlePlayAgain(ws: WebSocket, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
+  if (!resetGame(game, connInfo.playerId)) {
     sendError(ws, 'Only the host can restart the game');
     return;
   }
-  broadcast();
+  broadcastGame(connInfo.gameCode);
 }
 
-function handleKick(ws: WebSocket, msg: Record<string, unknown>): void {
-  const playerId = connections.get(ws);
-  if (!playerId) return;
-
+function handleKick(ws: WebSocket, msg: Record<string, unknown>, game: GameState, connInfo: { gameCode: string; playerId: string }): void {
+  if (!connInfo.playerId) return;
   const targetId = msg.targetId as string;
   if (!targetId) return;
 
-  const result = kickPlayer(game, playerId, targetId);
+  const result = kickPlayer(game, connInfo.playerId, targetId);
   if (!result) {
     sendError(ws, 'Cannot kick this player');
     return;
   }
 
-  if (result === 'removed') {
-    for (const [socket, id] of connections) {
-      if (id === targetId) {
-        sendTo(socket, { type: 'toast', message: 'You have been kicked from the game', variant: 'warning' });
+  for (const [socket, info] of connections) {
+    if (info.gameCode === connInfo.gameCode && info.playerId === targetId) {
+      sendTo(socket, { type: 'toast', message: result === 'removed' ? 'You have been kicked from the game' : 'You have been removed from the game', variant: 'warning' });
+      if (result === 'removed') {
         socket.close();
         connections.delete(socket);
       }
     }
-  } else {
-    for (const [socket, id] of connections) {
-      if (id === targetId) {
-        sendTo(socket, { type: 'toast', message: 'You have been removed from the game', variant: 'warning' });
-      }
-    }
   }
-  broadcast();
+  broadcastGame(connInfo.gameCode);
 }

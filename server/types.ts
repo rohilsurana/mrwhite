@@ -47,6 +47,7 @@ export interface VoteResult {
 }
 
 export interface GameState {
+  gameCode: string;
   phase: GamePhase;
   players: Player[];
   round: number;

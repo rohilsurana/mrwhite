@@ -18,11 +18,16 @@ import {
 } from '../server/game-engine';
 
 export class GameRoom extends DurableObject {
-  private game: GameState;
+  private game!: GameState;
 
   constructor(ctx: DurableObjectState, env: Record<string, unknown>) {
     super(ctx, env);
-    this.game = createGame();
+  }
+
+  private ensureGame(gameCode: string): void {
+    if (!this.game) {
+      this.game = createGame(gameCode);
+    }
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -30,6 +35,10 @@ export class GameRoom extends DurableObject {
     if (upgrade !== 'websocket') {
       return new Response('Expected WebSocket', { status: 426 });
     }
+
+    const url = new URL(request.url);
+    const gameCode = url.searchParams.get('code') || 'XXXX';
+    this.ensureGame(gameCode);
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);

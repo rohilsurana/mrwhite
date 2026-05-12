@@ -51,6 +51,7 @@ export interface ClientPlayer {
 }
 
 export interface ClientGameState {
+  gameCode: string;
   phase: GamePhase;
   players: ClientPlayer[];
   myRole: Role | null;

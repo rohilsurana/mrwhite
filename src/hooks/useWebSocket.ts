@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ClientGameState, ServerMessage, ClientMessage } from '../lib/types';
 
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const WS_URL = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
+const WS_BASE = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.host}/ws`;
 
 function sendMessage(ws: WebSocket | null, msg: ClientMessage | Record<string, unknown>) {
   if (ws?.readyState === WebSocket.OPEN) {
@@ -10,7 +10,7 @@ function sendMessage(ws: WebSocket | null, msg: ClientMessage | Record<string, u
   }
 }
 
-export function useWebSocket() {
+export function useWebSocket(gameCode: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
@@ -22,7 +22,8 @@ export function useWebSocket() {
     function connect() {
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-      const ws = new WebSocket(WS_URL);
+      const url = gameCode ? `${WS_BASE}?code=${gameCode}` : WS_BASE;
+      const ws = new WebSocket(url);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -42,6 +43,9 @@ export function useWebSocket() {
           case 'state':
             setGameState(msg.state);
             setError(null);
+            if (msg.state.gameCode) {
+              sessionStorage.setItem('mr_white_game_code', msg.state.gameCode);
+            }
             break;
           case 'error':
             setError(msg.message);
@@ -68,8 +72,9 @@ export function useWebSocket() {
     return () => {
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
+      wsRef.current = null;
     };
-  }, []);
+  }, [gameCode]);
 
   const send = (msg: ClientMessage) => sendMessage(wsRef.current, msg);
   const sendRaw = (msg: Record<string, unknown>) => sendMessage(wsRef.current, msg);

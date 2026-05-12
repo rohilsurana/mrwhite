@@ -15,8 +15,16 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export function createGame(): GameState {
+export function generateGameCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+export function createGame(gameCode: string): GameState {
   return {
+    gameCode,
     phase: 'lobby',
     players: [],
     round: 0,
@@ -432,6 +440,7 @@ export function getClientState(game: GameState, playerId: string): Record<string
   return {
     type: 'state',
     state: {
+      gameCode: game.gameCode,
       phase: game.phase,
       players: game.players.map((p) => ({
         id: p.id,

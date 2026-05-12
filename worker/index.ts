@@ -5,6 +5,13 @@ interface Env {
   ASSETS: Fetcher;
 }
 
+function generateGameCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let code = '';
+  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -14,9 +21,12 @@ export default {
       if (upgrade !== 'websocket') {
         return new Response('Expected WebSocket upgrade', { status: 426 });
       }
-      const id = env.GAME_ROOM.idFromName('default');
+      const gameCode = url.searchParams.get('code') || generateGameCode();
+      const id = env.GAME_ROOM.idFromName(gameCode);
       const room = env.GAME_ROOM.get(id);
-      return room.fetch(request);
+      const roomUrl = new URL(request.url);
+      roomUrl.searchParams.set('code', gameCode);
+      return room.fetch(new Request(roomUrl.toString(), request));
     }
 
     return env.ASSETS.fetch(request);

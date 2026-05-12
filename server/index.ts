@@ -9,10 +9,18 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
 
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({ noServer: true });
 
-wss.on('connection', (ws) => {
-  handleConnection(ws);
+server.on('upgrade', (req, socket, head) => {
+  const url = new URL(req.url || '', `http://${req.headers.host}`);
+  if (url.pathname !== '/ws') {
+    socket.destroy();
+    return;
+  }
+  const gameCode = url.searchParams.get('code');
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    handleConnection(ws, gameCode);
+  });
 });
 
 const distPath = join(__dirname, '..', 'dist');
