@@ -202,11 +202,11 @@ function JoinGameForm({ joinCode, setJoinCode, onSubmit }: { joinCode: string; s
       <h2 className="text-lg font-semibold text-white/90 mb-3">Join a Game</h2>
       <form onSubmit={(e) => { e.preventDefault(); if (joinCode.trim() && name.trim()) onSubmit(joinCode.trim(), name.trim()); }} className="flex flex-col gap-3">
         <Input
-          placeholder="Game code (e.g. ABCD)"
+          placeholder="Game code"
           value={joinCode}
           onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
           maxLength={4}
-          className="text-center text-2xl tracking-[0.3em] font-bold uppercase"
+          className="text-center text-xl tracking-[0.3em] font-bold uppercase"
         />
         <Input placeholder="Your name..." value={name} onChange={(e) => setName(e.target.value)} maxLength={20} />
         <Button type="submit" disabled={!joinCode.trim() || !name.trim()}>Join Game</Button>
