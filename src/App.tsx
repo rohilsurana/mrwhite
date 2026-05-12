@@ -272,6 +272,7 @@ function LocalVoting({ state, activePlayer, onVote }: {
       <Button onClick={() => selected && onVote(selected)} disabled={!selected} className="w-full">
         Submit Vote
       </Button>
+      <ClueHistory descriptions={state.descriptions} />
     </div>
   );
 }
