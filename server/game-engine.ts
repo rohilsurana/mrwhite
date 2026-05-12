@@ -433,6 +433,27 @@ export function kickPlayer(game: GameState, hostId: string, targetId: string): '
   return 'eliminated';
 }
 
+export interface SerializedGameState extends Omit<GameState, 'describedThisRound' | 'votedThisRound'> {
+  describedThisRound: string[];
+  votedThisRound: string[];
+}
+
+export function serializeGame(game: GameState): SerializedGameState {
+  return {
+    ...game,
+    describedThisRound: [...game.describedThisRound],
+    votedThisRound: [...game.votedThisRound],
+  };
+}
+
+export function deserializeGame(data: SerializedGameState): GameState {
+  return {
+    ...data,
+    describedThisRound: new Set(data.describedThisRound),
+    votedThisRound: new Set(data.votedThisRound),
+  };
+}
+
 export function getClientState(game: GameState, playerId: string): Record<string, unknown> {
   const me = game.players.find((p) => p.id === playerId);
   const isGameOver = game.phase === 'game_over';

@@ -15,19 +15,37 @@ import {
   resetGame,
   kickPlayer,
   getClientState,
+  serializeGame,
+  deserializeGame,
+  type SerializedGameState,
 } from '../server/game-engine';
 
 export class GameRoom extends DurableObject {
   private game!: GameState;
+  private initialized = false;
 
   constructor(ctx: DurableObjectState, env: Record<string, unknown>) {
     super(ctx, env);
+    this.ctx.blockConcurrencyWhile(async () => {
+      await this.loadState();
+    });
   }
 
-  private ensureGame(gameCode: string): void {
-    if (!this.game) {
-      this.game = createGame(gameCode);
+  private async loadState(): Promise<void> {
+    const stored = await this.ctx.storage.get<SerializedGameState>('game');
+    if (stored) {
+      this.game = deserializeGame(stored);
     }
+    this.initialized = true;
+  }
+
+  private async saveState(): Promise<void> {
+    await this.ctx.storage.put('game', serializeGame(this.game));
+  }
+
+  private async broadcastAndSave(): Promise<void> {
+    this.broadcast();
+    await this.saveState();
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -38,7 +56,10 @@ export class GameRoom extends DurableObject {
 
     const url = new URL(request.url);
     const gameCode = url.searchParams.get('code') || 'XXXX';
-    this.ensureGame(gameCode);
+    if (!this.initialized || !this.game) {
+      this.game = createGame(gameCode);
+      await this.saveState();
+    }
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
@@ -60,35 +81,36 @@ export class GameRoom extends DurableObject {
 
     switch (msg.type) {
       case 'join':
-        this.handleJoin(ws, msg);
+        await this.handleJoin(ws, msg);
         break;
       case 'update_settings':
-        this.handleUpdateSettings(ws, msg);
+        await this.handleUpdateSettings(ws, msg);
         break;
       case 'start_game':
-        this.handleStartGame(ws);
+        await this.handleStartGame(ws);
         break;
       case 'word_seen':
-        this.handleWordSeen(ws);
+        await this.handleWordSeen(ws);
         break;
       case 'submit_description':
-        this.handleSubmitDescription(ws, msg);
+        await this.handleSubmitDescription(ws, msg);
         break;
       case 'vote':
-        this.handleVote(ws, msg);
+        await this.handleVote(ws, msg);
         break;
       case 'continue_after_vote':
-        this.handleContinueAfterVote();
+        processVoteResult(this.game);
+        await this.broadcastAndSave();
         break;
       case 'guess_word':
-        this.handleGuessWord(ws, msg);
+        await this.handleGuessWord(ws, msg);
         break;
       case 'play_again':
       case 'reset_game':
-        this.handlePlayAgain(ws);
+        await this.handlePlayAgain(ws);
         break;
       case 'kick_player':
-        this.handleKick(ws, msg);
+        await this.handleKick(ws, msg);
         break;
       default:
         this.sendError(ws, 'Unknown message type');
@@ -99,7 +121,7 @@ export class GameRoom extends DurableObject {
     const playerId = this.getPlayerId(ws);
     if (playerId) {
       removePlayer(this.game, playerId);
-      this.broadcast();
+      await this.broadcastAndSave();
     }
   }
 
@@ -107,7 +129,7 @@ export class GameRoom extends DurableObject {
     const playerId = this.getPlayerId(ws);
     if (playerId) {
       removePlayer(this.game, playerId);
-      this.broadcast();
+      await this.broadcastAndSave();
     }
   }
 
@@ -145,7 +167,7 @@ export class GameRoom extends DurableObject {
     this.sendTo(ws, { type: 'error', message });
   }
 
-  private handleJoin(ws: WebSocket, msg: Record<string, unknown>): void {
+  private async handleJoin(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
     const name = msg.name as string;
     const existingId = msg.playerId as string | undefined;
 
@@ -158,7 +180,7 @@ export class GameRoom extends DurableObject {
       const reconnected = reconnectPlayer(this.game, existingId);
       if (reconnected) {
         this.setPlayerId(ws, existingId);
-        this.broadcast();
+        await this.broadcastAndSave();
         return;
       }
     }
@@ -174,10 +196,10 @@ export class GameRoom extends DurableObject {
     }
 
     this.setPlayerId(ws, player.id);
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handleUpdateSettings(ws: WebSocket, msg: Record<string, unknown>): void {
+  private async handleUpdateSettings(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
@@ -188,10 +210,10 @@ export class GameRoom extends DurableObject {
       this.sendError(ws, 'Only the host can change settings');
       return;
     }
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handleStartGame(ws: WebSocket): void {
+  private async handleStartGame(ws: WebSocket): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
@@ -199,18 +221,18 @@ export class GameRoom extends DurableObject {
       this.sendError(ws, 'Cannot start game. Need at least 3 players.');
       return;
     }
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handleWordSeen(ws: WebSocket): void {
+  private async handleWordSeen(ws: WebSocket): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
     markWordSeen(this.game, playerId);
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handleSubmitDescription(ws: WebSocket, msg: Record<string, unknown>): void {
+  private async handleSubmitDescription(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
@@ -224,10 +246,10 @@ export class GameRoom extends DurableObject {
       this.sendError(ws, "It's not your turn");
       return;
     }
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handleVote(ws: WebSocket, msg: Record<string, unknown>): void {
+  private async handleVote(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
@@ -241,15 +263,10 @@ export class GameRoom extends DurableObject {
       this.sendError(ws, 'Invalid vote');
       return;
     }
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handleContinueAfterVote(): void {
-    processVoteResult(this.game);
-    this.broadcast();
-  }
-
-  private handleGuessWord(ws: WebSocket, msg: Record<string, unknown>): void {
+  private async handleGuessWord(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
@@ -263,10 +280,10 @@ export class GameRoom extends DurableObject {
       this.sendError(ws, 'You cannot guess right now');
       return;
     }
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handlePlayAgain(ws: WebSocket): void {
+  private async handlePlayAgain(ws: WebSocket): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
@@ -274,10 +291,10 @@ export class GameRoom extends DurableObject {
       this.sendError(ws, 'Only the host can restart the game');
       return;
     }
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 
-  private handleKick(ws: WebSocket, msg: Record<string, unknown>): void {
+  private async handleKick(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
@@ -304,6 +321,6 @@ export class GameRoom extends DurableObject {
         }
       }
     }
-    this.broadcast();
+    await this.broadcastAndSave();
   }
 }
