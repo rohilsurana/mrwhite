@@ -271,7 +271,8 @@ export class GameRoom extends DurableObject {
       return;
     }
 
-    if (!submitVote(this.game, playerId, targetId)) {
+    const accusedRole = msg.accusedRole as 'mr_white' | 'spy' | undefined;
+    if (!submitVote(this.game, playerId, targetId, accusedRole)) {
       this.sendError(ws, 'Invalid vote');
       return;
     }

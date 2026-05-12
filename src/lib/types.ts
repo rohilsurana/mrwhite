@@ -18,6 +18,7 @@ export type GamePhase =
 export interface GameSettings {
   spyCount: number;
   describeTimerSeconds: number;
+  strictMode: boolean;
 }
 
 export interface DescriptionEntry {
@@ -36,6 +37,7 @@ export interface VoteResult {
   voteCounts: Record<string, number>;
   isTie: boolean;
   eliminatedRole?: Role;
+  wrongAccusation?: boolean;
 }
 
 export interface ClientPlayer {
@@ -74,7 +76,7 @@ export type ClientMessage =
   | { type: 'start_game' }
   | { type: 'word_seen' }
   | { type: 'submit_description'; text: string }
-  | { type: 'vote'; targetId: string }
+  | { type: 'vote'; targetId: string; accusedRole?: 'mr_white' | 'spy' }
   | { type: 'guess_word'; word: string }
   | { type: 'play_again' }
   | { type: 'kick_player'; targetId: string };

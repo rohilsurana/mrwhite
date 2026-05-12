@@ -34,11 +34,12 @@ export function createGame(gameCode: string): GameState {
     voteResult: null,
     descriptions: [],
     winner: null,
-    settings: { spyCount: 1, describeTimerSeconds: 60 },
+    settings: { spyCount: 1, describeTimerSeconds: 60, strictMode: false },
     usedWordPairIndices: [],
     turnOrder: [],
     describedThisRound: new Set(),
     votedThisRound: new Set(),
+    accusations: {},
   };
 }
 
@@ -99,6 +100,9 @@ export function updateSettings(game: GameState, playerId: string, settings: Part
   }
   if (settings.describeTimerSeconds !== undefined) {
     game.settings.describeTimerSeconds = Math.max(0, settings.describeTimerSeconds);
+  }
+  if (settings.strictMode !== undefined) {
+    game.settings.strictMode = settings.strictMode;
   }
   return true;
 }
@@ -245,17 +249,20 @@ function startVotingPhase(game: GameState): void {
   game.votes = {};
   game.votedThisRound = new Set();
   game.voteResult = null;
+  game.accusations = {};
 }
 
-export function submitVote(game: GameState, voterId: string, targetId: string): boolean {
+export function submitVote(game: GameState, voterId: string, targetId: string, accusedRole?: 'mr_white' | 'spy'): boolean {
   if (game.phase !== 'voting') return false;
   const voter = game.players.find((p) => p.id === voterId);
   const target = game.players.find((p) => p.id === targetId);
   if (!voter?.isAlive || !target?.isAlive) return false;
   if (voterId === targetId) return false;
+  if (game.settings.strictMode && !accusedRole) return false;
 
   game.votes[voterId] = targetId;
   game.votedThisRound.add(voterId);
+  if (accusedRole) game.accusations[voterId] = accusedRole;
 
   const alivePlayers = game.players.filter((p) => p.isAlive && p.isConnected);
   if (game.votedThisRound.size >= alivePlayers.length) {
@@ -279,21 +286,37 @@ function tallyVotes(game: GameState): void {
 
   let eliminatedPlayerId: string | null = null;
   let eliminatedRole: Role | undefined;
+  let wrongAccusation = false;
 
   if (!isTie) {
     eliminatedPlayerId = topPlayers[0][0];
     const eliminated = game.players.find((p) => p.id === eliminatedPlayerId);
-    if (eliminated) {
+
+    if (eliminated && game.settings.strictMode) {
+      const accusationsForTarget: Record<string, number> = { mr_white: 0, spy: 0 };
+      Object.entries(game.votes).forEach(([voterId, tid]) => {
+        if (tid === eliminatedPlayerId && game.accusations[voterId]) {
+          accusationsForTarget[game.accusations[voterId]]++;
+        }
+      });
+      const majorityAccusation = accusationsForTarget.mr_white >= accusationsForTarget.spy ? 'mr_white' : 'spy';
+      if (eliminated.role !== majorityAccusation) {
+        wrongAccusation = true;
+      }
+    }
+
+    if (eliminated && !wrongAccusation) {
       eliminated.isAlive = false;
       eliminatedRole = eliminated.role ?? undefined;
     }
   }
 
   game.voteResult = {
-    eliminatedPlayerId,
+    eliminatedPlayerId: wrongAccusation ? null : eliminatedPlayerId,
     voteCounts: counts,
     isTie,
     eliminatedRole,
+    wrongAccusation,
   };
 
   game.phase = 'vote_result';
@@ -379,6 +402,7 @@ export function resetGame(game: GameState, playerId: string): boolean {
   game.turnOrder = [];
   game.describedThisRound = new Set();
   game.votedThisRound = new Set();
+  game.accusations = {};
 
   game.players.forEach((p) => {
     p.role = null;

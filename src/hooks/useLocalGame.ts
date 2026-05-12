@@ -34,6 +34,7 @@ interface LocalState {
   turnOrder: string[];
   describedThisRound: Set<string>;
   votedThisRound: Set<string>;
+  accusations: Record<string, 'mr_white' | 'spy'>;
   activeViewerId: string | null;
   wordVisible: boolean;
   passQueue: string[];
@@ -59,11 +60,12 @@ function createLocalState(): LocalState {
     voteResult: null,
     descriptions: [],
     winner: null,
-    settings: { spyCount: 1, describeTimerSeconds: 0 },
+    settings: { spyCount: 1, describeTimerSeconds: 0, strictMode: false },
     usedWordPairIndices: [],
     turnOrder: [],
     describedThisRound: new Set(),
     votedThisRound: new Set(),
+    accusations: {},
     activeViewerId: null,
     wordVisible: false,
     passQueue: [],
@@ -162,6 +164,7 @@ export function useLocalGame() {
     update((s) => {
       if (settings.spyCount !== undefined) s.settings.spyCount = Math.max(0, settings.spyCount);
       if (settings.describeTimerSeconds !== undefined) s.settings.describeTimerSeconds = Math.max(0, settings.describeTimerSeconds);
+      if (settings.strictMode !== undefined) s.settings.strictMode = settings.strictMode;
       return s;
     });
   }, [update]);
@@ -291,14 +294,16 @@ export function useLocalGame() {
     });
   }, [update, advanceDescribing]);
 
-  const submitVote = useCallback((targetId: string) => {
+  const submitVote = useCallback((targetId: string, accusedRole?: 'mr_white' | 'spy') => {
     update((s) => {
       if (s.phase !== 'voting' || !s.activeViewerId) return s;
       if (s.activeViewerId === targetId) return s;
+      if (s.settings.strictMode && !accusedRole) return s;
 
       s.votes = { ...s.votes, [s.activeViewerId]: targetId };
       s.votedThisRound = new Set(s.votedThisRound);
       s.votedThisRound.add(s.activeViewerId);
+      if (accusedRole) s.accusations = { ...s.accusations, [s.activeViewerId]: accusedRole };
 
       const currentIdx = s.passQueue.indexOf(s.activeViewerId);
       if (currentIdx >= s.passQueue.length - 1) {
@@ -312,17 +317,34 @@ export function useLocalGame() {
 
         let eliminatedPlayerId: string | null = null;
         let eliminatedRole: Role | undefined;
+        let wrongAccusation = false;
 
         if (!isTie) {
           eliminatedPlayerId = topPlayers[0][0];
           const eliminated = s.players.find((p) => p.id === eliminatedPlayerId);
-          if (eliminated) {
+
+          if (eliminated && s.settings.strictMode) {
+            const acc: Record<string, number> = { mr_white: 0, spy: 0 };
+            Object.entries(s.votes).forEach(([vid, tid]) => {
+              if (tid === eliminatedPlayerId && s.accusations[vid]) acc[s.accusations[vid]]++;
+            });
+            const majority = acc.mr_white >= acc.spy ? 'mr_white' : 'spy';
+            if (eliminated.role !== majority) wrongAccusation = true;
+          }
+
+          if (eliminated && !wrongAccusation) {
             eliminated.isAlive = false;
             eliminatedRole = eliminated.role ?? undefined;
           }
         }
 
-        s.voteResult = { eliminatedPlayerId, voteCounts: counts, isTie, eliminatedRole };
+        s.voteResult = {
+          eliminatedPlayerId: wrongAccusation ? null : eliminatedPlayerId,
+          voteCounts: counts,
+          isTie,
+          eliminatedRole,
+          wrongAccusation,
+        };
         s.phase = 'vote_result';
         s.activeViewerId = null;
       } else {

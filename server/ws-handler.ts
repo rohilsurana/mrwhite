@@ -162,7 +162,7 @@ function handleUpdateSettings(ws: WebSocket, msg: Record<string, unknown>, game:
   if (!connInfo.playerId) return;
   const settings = msg.settings as Record<string, unknown>;
   if (!settings) return;
-  if (!updateSettings(game, connInfo.playerId, settings as { spyCount?: number; describeTimerSeconds?: number })) {
+  if (!updateSettings(game, connInfo.playerId, settings as { spyCount?: number; describeTimerSeconds?: number; strictMode?: boolean })) {
     sendError(ws, 'Only the host can change settings');
     return;
   }
@@ -205,7 +205,8 @@ function handleVote(ws: WebSocket, msg: Record<string, unknown>, game: GameState
     sendError(ws, 'Must select a player to vote for');
     return;
   }
-  if (!submitVote(game, connInfo.playerId, targetId)) {
+  const accusedRole = msg.accusedRole as 'mr_white' | 'spy' | undefined;
+  if (!submitVote(game, connInfo.playerId, targetId, accusedRole)) {
     sendError(ws, 'Invalid vote');
     return;
   }

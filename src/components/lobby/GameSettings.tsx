@@ -77,6 +77,25 @@ export function GameSettings({ settings, playerCount, onSend, onSendRaw }: GameS
           </div>
         </div>
 
+        <div>
+          <label className="text-sm text-white/50 block mb-2">Strict Mode</label>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => onSendRaw({ type: 'update_settings', settings: { strictMode: false } })}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                !settings.strictMode ? 'bg-violet-600 text-white' : 'bg-white/10 text-white/60 hover:bg-white/15'
+              }`}
+            >Off</button>
+            <button
+              onClick={() => onSendRaw({ type: 'update_settings', settings: { strictMode: true } })}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                settings.strictMode ? 'bg-violet-600 text-white' : 'bg-white/10 text-white/60 hover:bg-white/15'
+              }`}
+            >On</button>
+          </div>
+          <p className="text-xs text-white/30 mt-1 text-center">Must accuse Mr. White or Spy when voting</p>
+        </div>
+
         <Button
           onClick={() => onSend({ type: 'start_game' })}
           disabled={!canStart}

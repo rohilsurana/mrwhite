@@ -7,15 +7,19 @@ import type { ClientGameState, ClientMessage } from '../../lib/types';
 
 export function VotingPhase({ state, onSend }: { state: ClientGameState; onSend: (msg: ClientMessage) => void }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [accusedRole, setAccusedRole] = useState<'mr_white' | 'spy' | null>(null);
   const hasVoted = state.players.find((p) => p.id === state.myId)?.hasVoted;
 
   const votablePlayers = state.players.filter((p) => p.isAlive && p.id !== state.myId);
   const totalAlive = state.players.filter((p) => p.isAlive).length;
   const votedCount = state.players.filter((p) => p.hasVoted).length;
+  const strict = state.settings.strictMode;
+  const canSubmit = selected && (!strict || accusedRole);
 
   const handleVote = () => {
     if (!selected || hasVoted) return;
-    onSend({ type: 'vote', targetId: selected });
+    if (strict && !accusedRole) return;
+    onSend({ type: 'vote', targetId: selected, accusedRole: accusedRole ?? undefined });
   };
 
   return (
@@ -45,7 +49,32 @@ export function VotingPhase({ state, onSend }: { state: ClientGameState; onSend:
               </motion.button>
             ))}
           </div>
-          <Button onClick={handleVote} disabled={!selected} className="w-full">
+
+          {strict && selected && (
+            <div>
+              <p className="text-sm text-white/50 mb-2 text-center">They are a...</p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setAccusedRole('mr_white')}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+                    accusedRole === 'mr_white'
+                      ? 'bg-red-500/20 border-red-500/50 text-red-300 ring-1 ring-red-500/30'
+                      : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                  }`}
+                >Mr. White</button>
+                <button
+                  onClick={() => setAccusedRole('spy')}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${
+                    accusedRole === 'spy'
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/30'
+                      : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                  }`}
+                >Spy</button>
+              </div>
+            </div>
+          )}
+
+          <Button onClick={handleVote} disabled={!canSubmit} className="w-full">
             Submit Vote
           </Button>
         </>

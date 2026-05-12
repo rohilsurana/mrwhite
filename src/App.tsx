@@ -316,7 +316,7 @@ function LocalGame({ onBack }: { onBack: () => void }) {
         )}
 
         {gameState.phase === 'voting' && activePlayer && passReady && (
-          <LocalVoting state={gameState} activePlayer={activePlayer} onVote={(targetId) => { local.submitVote(targetId); setPassReady(false); }} />
+          <LocalVoting state={gameState} activePlayer={activePlayer} onVote={(targetId, accusedRole) => { local.submitVote(targetId, accusedRole); setPassReady(false); }} />
         )}
 
         {gameState.phase === 'vote_result' && (
@@ -335,9 +335,12 @@ function LocalGame({ onBack }: { onBack: () => void }) {
   }
 }
 
-function LocalVoting({ state, activePlayer, onVote }: { state: ClientGameState; activePlayer: { id: string; name: string }; onVote: (targetId: string) => void }) {
+function LocalVoting({ state, activePlayer, onVote }: { state: ClientGameState; activePlayer: { id: string; name: string }; onVote: (targetId: string, accusedRole?: 'mr_white' | 'spy') => void }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [accusedRole, setAccusedRole] = useState<'mr_white' | 'spy' | null>(null);
   const votable = state.players.filter((p) => p.isAlive && p.id !== activePlayer.id);
+  const strict = state.settings.strictMode;
+  const canSubmit = selected && (!strict || accusedRole);
 
   return (
     <div className="flex flex-col gap-6 px-4 max-w-lg mx-auto w-full">
@@ -361,7 +364,18 @@ function LocalVoting({ state, activePlayer, onVote }: { state: ClientGameState; 
           </motion.button>
         ))}
       </div>
-      <Button onClick={() => selected && onVote(selected)} disabled={!selected} className="w-full">Submit Vote</Button>
+      {strict && selected && (
+        <div>
+          <p className="text-sm text-white/50 mb-2 text-center">They are a...</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={() => setAccusedRole('mr_white')}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${accusedRole === 'mr_white' ? 'bg-red-500/20 border-red-500/50 text-red-300 ring-1 ring-red-500/30' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}>Mr. White</button>
+            <button onClick={() => setAccusedRole('spy')}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border ${accusedRole === 'spy' ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/30' : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'}`}>Spy</button>
+          </div>
+        </div>
+      )}
+      <Button onClick={() => canSubmit && onVote(selected!, accusedRole ?? undefined)} disabled={!canSubmit} className="w-full">Submit Vote</Button>
       <ClueHistory descriptions={state.descriptions} />
     </div>
   );

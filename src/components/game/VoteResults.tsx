@@ -66,6 +66,8 @@ export function VoteResults({ state, onContinue }: { state: ClientGameState; onC
       <GlassCard className="text-center">
         {result.isTie ? (
           <p className="text-amber-400 font-medium">It's a tie! No one is eliminated.</p>
+        ) : result.wrongAccusation ? (
+          <p className="text-amber-400 font-medium">Wrong accusation! No one is eliminated this round.</p>
         ) : eliminated ? (
           <p className="text-white/80">
             <span className="font-bold text-red-400">{eliminated.name}</span> has been eliminated!

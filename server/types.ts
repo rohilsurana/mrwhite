@@ -26,6 +26,7 @@ export interface Player {
 export interface GameSettings {
   spyCount: number;
   describeTimerSeconds: number;
+  strictMode: boolean;
 }
 
 export interface DescriptionEntry {
@@ -44,6 +45,7 @@ export interface VoteResult {
   voteCounts: Record<string, number>;
   isTie: boolean;
   eliminatedRole?: Role;
+  wrongAccusation?: boolean;
 }
 
 export interface GameState {
@@ -62,4 +64,5 @@ export interface GameState {
   turnOrder: string[];
   describedThisRound: Set<string>;
   votedThisRound: Set<string>;
+  accusations: Record<string, 'mr_white' | 'spy'>;
 }
