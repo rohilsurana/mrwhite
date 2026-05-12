@@ -20,6 +20,8 @@ import {
   type SerializedGameState,
 } from '../server/game-engine';
 
+const TTL_MS = 2 * 60 * 60 * 1000;
+
 export class GameRoom extends DurableObject {
   private game!: GameState;
   private initialized = false;
@@ -41,11 +43,21 @@ export class GameRoom extends DurableObject {
 
   private async saveState(): Promise<void> {
     await this.ctx.storage.put('game', serializeGame(this.game));
+    await this.ctx.storage.setAlarm(Date.now() + TTL_MS);
   }
 
   private async broadcastAndSave(): Promise<void> {
     this.broadcast();
     await this.saveState();
+  }
+
+  async alarm(): Promise<void> {
+    const sockets = this.ctx.getWebSockets();
+    if (sockets.length > 0) {
+      await this.ctx.storage.setAlarm(Date.now() + TTL_MS);
+      return;
+    }
+    await this.ctx.storage.deleteAll();
   }
 
   async fetch(request: Request): Promise<Response> {
