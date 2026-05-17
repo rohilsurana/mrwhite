@@ -14,6 +14,7 @@ import { GuessPhase } from './components/game/GuessPhase';
 import { GameOver } from './components/game/GameOver';
 import { HostControls } from './components/game/HostControls';
 import { PassDevice } from './components/game/PassDevice';
+import { PeekWord } from './components/game/PeekWord';
 import { GlassCard } from './components/ui/GlassCard';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
@@ -164,6 +165,9 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
             </>
           )}
           <GamePhaseRenderer state={gameState} onSend={send} onSendRaw={sendRaw} isOnline />
+          {(gameState.phase === 'describing' || gameState.phase === 'voting') && (
+            <PeekWord state={gameState} />
+          )}
         </>
       )}
 
