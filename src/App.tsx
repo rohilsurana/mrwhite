@@ -15,12 +15,13 @@ import { GameOver } from './components/game/GameOver';
 import { HostControls } from './components/game/HostControls';
 import { PassDevice } from './components/game/PassDevice';
 import { PeekWord } from './components/game/PeekWord';
+import { HowToPlayDialog } from './components/game/HowToPlayDialog';
 import { GlassCard } from './components/ui/GlassCard';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
 import type { ClientGameState, ClientMessage, RoundDescriptions } from './lib/types';
 
-type Mode = 'select' | 'online' | 'local' | 'how-to-play';
+type Mode = 'select' | 'online' | 'local';
 type OnlineStep = 'choose' | 'create' | 'join' | 'playing';
 
 function getInitialState(): { mode: Mode; gameCode: string | null; step: OnlineStep } {
@@ -59,8 +60,8 @@ function App() {
         {mode === 'select' && <ModeSelect onSelect={setMode} />}
         {mode === 'online' && <OnlineGame onBack={handleBack} initialStep={initial.step} initialCode={initial.gameCode} />}
         {mode === 'local' && <LocalGame onBack={handleBack} />}
-        {mode === 'how-to-play' && <HowToPlay onBack={() => setMode('select')} />}
       </main>
+      <HowToPlayDialog />
     </div>
   );
 }
@@ -79,12 +80,6 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
       <Button onClick={() => onSelect('local')} variant="secondary" className="w-full">
         Single Device — Pass & play
       </Button>
-      <button
-        onClick={() => onSelect('how-to-play')}
-        className="text-white/30 hover:text-white/60 text-sm transition-colors cursor-pointer mt-2"
-      >
-        How to play
-      </button>
     </motion.div>
   );
 }
@@ -483,95 +478,6 @@ function ClueHistory({ descriptions }: { descriptions: RoundDescriptions[] }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function HowToPlay({ onBack }: { onBack: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col gap-6 px-4 w-full max-w-lg"
-    >
-      <GlassCard>
-        <h2 className="text-lg font-semibold text-white mb-4">How to Play</h2>
-        <div className="flex flex-col gap-4 text-sm text-white/70">
-          <section>
-            <h3 className="text-white/90 font-medium mb-1">The Setup</h3>
-            <p>3 or more players join a game. Each player is secretly assigned a role:</p>
-            <ul className="list-disc list-inside mt-1.5 space-y-1 text-white/60">
-              <li><span className="text-white/80">Civilians</span> — all receive the same secret word (e.g. "Beach")</li>
-              <li><span className="text-amber-400">Spies</span> — receive a similar but different word (e.g. "Pool"). They don't know they're spies.</li>
-              <li><span className="text-red-400">Mr. White</span> — receives no word at all. Must bluff their way through.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="text-white/90 font-medium mb-1">Each Round</h3>
-            <ol className="list-decimal list-inside space-y-1 text-white/60">
-              <li><span className="text-white/80">Describe</span> — each player gives a one-word or short clue about their word. Be specific enough that other civilians recognize you, but vague enough that Mr. White can't guess the word.</li>
-              <li><span className="text-white/80">Vote</span> — everyone votes on who they think is Mr. White. The player with the most votes is eliminated and their role is revealed.</li>
-            </ol>
-          </section>
-
-          <section>
-            <h3 className="text-white/90 font-medium mb-1">Winning</h3>
-            <ul className="list-disc list-inside space-y-1 text-white/60">
-              <li><span className="text-white/80">Civilians win</span> if they identify and eliminate Mr. White, and Mr. White fails to guess the word.</li>
-              <li><span className="text-red-400">Mr. White wins</span> if they survive until only 2 players remain, or if they correctly guess the word when caught.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="text-white/90 font-medium mb-1">Mr. White's Last Chance</h3>
-            <p className="text-white/60">When Mr. White is voted out, they get one final guess at the word. If they guess correctly from the clues they heard — they win despite being caught.</p>
-          </section>
-
-          <section>
-            <h3 className="text-white/90 font-medium mb-1">The Spy Twist</h3>
-            <p className="text-white/60">Spies have a similar word but don't know it's different. Their clues might subtly mismatch, creating confusion. Nobody knows who the spy is — not even the spy themselves.</p>
-          </section>
-        </div>
-      </GlassCard>
-
-      <GlassCard>
-        <h2 className="text-lg font-semibold text-white mb-4">Game Settings</h2>
-        <div className="flex flex-col gap-3 text-sm text-white/70">
-          <div>
-            <span className="text-white/90 font-medium">Spies</span>
-            <span className="text-white/50"> — number of players who get a different word. 0 means only Mr. White and civilians. Needs 4+ players.</span>
-          </div>
-          <div>
-            <span className="text-white/90 font-medium">Turn Timer</span>
-            <span className="text-white/50"> — optional time limit for each player's description turn.</span>
-          </div>
-          <div>
-            <span className="text-white/90 font-medium">Strict Mode</span>
-            <span className="text-white/50"> — when voting, you must also accuse the target as "Mr. White" or "Spy". If the majority accusation is wrong, the elimination is cancelled.</span>
-          </div>
-          <div>
-            <span className="text-white/90 font-medium">Clue Mode</span>
-            <span className="text-white/40"> (single device only)</span>
-            <span className="text-white/50"> — verbal (say clues out loud) or typed (type privately on the device).</span>
-          </div>
-        </div>
-      </GlassCard>
-
-      <GlassCard>
-        <h2 className="text-lg font-semibold text-white mb-4">Tips</h2>
-        <ul className="list-disc list-inside space-y-1.5 text-sm text-white/60">
-          <li>Mr. White never goes first — use the early clues to figure out the theme.</li>
-          <li>Too vague and Mr. White blends in easily. Too specific and they'll guess the word.</li>
-          <li>Pay attention to clues that don't quite fit — that might be the spy's different word.</li>
-          <li>As Mr. White, listen carefully and echo the vibe of other clues without being too generic.</li>
-          <li>In strict mode, civilians need to agree on both the person and their role — discuss before voting.</li>
-        </ul>
-      </GlassCard>
-
-      <div className="flex justify-center">
-        <BackButton onBack={onBack} />
-      </div>
-    </motion.div>
   );
 }
 
