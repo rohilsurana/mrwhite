@@ -12,20 +12,24 @@ function generateGameCode(): string {
   return code;
 }
 
+async function extractGameCode(request: Request, url: URL): Promise<string> {
+  if (request.method === 'POST') {
+    const body = await request.clone().json() as Record<string, unknown>;
+    return (body.gameCode as string) || generateGameCode();
+  }
+  return url.searchParams.get('code') || generateGameCode();
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (url.pathname === '/ws') {
-      const upgrade = request.headers.get('Upgrade');
-      if (upgrade !== 'websocket') {
-        return new Response('Expected WebSocket upgrade', { status: 426 });
-      }
-      const gameCode = url.searchParams.get('code') || generateGameCode();
+    if (url.pathname.startsWith('/api/game')) {
+      const gameCode = await extractGameCode(request, url);
       const id = env.GAME_ROOM.idFromName(gameCode);
       const room = env.GAME_ROOM.get(id);
       const roomUrl = new URL(request.url);
-      roomUrl.searchParams.set('code', gameCode);
+      roomUrl.searchParams.set('_code', gameCode);
       return room.fetch(new Request(roomUrl.toString(), request));
     }
 

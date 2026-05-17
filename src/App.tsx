@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useWebSocket } from './hooks/useWebSocket';
+import { usePolling } from './hooks/usePolling';
 import { useLocalGame } from './hooks/useLocalGame';
 import { PlayerList } from './components/lobby/PlayerList';
 import { GameSettings } from './components/lobby/GameSettings';
@@ -89,17 +89,14 @@ function ModeSelect({ onSelect }: { onSelect: (m: Mode) => void }) {
 
 function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; initialStep: OnlineStep; initialCode: string | null }) {
   const [step, setStep] = useState<OnlineStep>(initialStep);
-  const [gameCode, setGameCode] = useState<string | null>(initialCode);
   const [joinCode, setJoinCode] = useState(initialCode || '');
-  const [name, setName] = useState('');
 
-  const isReconnecting = initialStep === 'playing';
-  const wsGameCode = step === 'playing' ? gameCode : null;
-  const { gameState, error, toast, connected, send, sendRaw } = useWebSocket(wsGameCode);
+  const pollingCode = step === 'playing' ? (initialCode || null) : null;
+  const { gameState, error, joined, join, send, sendRaw } = usePolling(pollingCode);
 
   const isInGame = gameState?.myId && gameState.players.some((p) => p.id === gameState.myId);
   const showHostControls = gameState && isInGame && gameState.isHost && gameState.phase !== 'lobby';
-  const effectiveCode = gameState?.gameCode || gameCode;
+  const effectiveCode = gameState?.gameCode;
 
   useEffect(() => {
     if (effectiveCode) {
@@ -107,31 +104,19 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
     }
   }, [effectiveCode]);
 
-  const handleCreate = (playerName: string) => {
+  const handleCreate = async (playerName: string) => {
     sessionStorage.setItem('mr_white_player_id', crypto.randomUUID());
     sessionStorage.setItem('mr_white_player_name', playerName);
-    setName(playerName);
-    setGameCode(null);
+    await join(null, playerName);
     setStep('playing');
   };
 
-  const handleJoin = (code: string, playerName: string) => {
+  const handleJoin = async (code: string, playerName: string) => {
     sessionStorage.setItem('mr_white_player_id', crypto.randomUUID());
     sessionStorage.setItem('mr_white_player_name', playerName);
-    setName(playerName);
-    setGameCode(code.toUpperCase());
+    await join(code.toUpperCase(), playerName);
     setStep('playing');
   };
-
-  useEffect(() => {
-    if (step === 'playing' && connected && !isInGame) {
-      const storedName = sessionStorage.getItem('mr_white_player_name') || name;
-      const storedId = sessionStorage.getItem('mr_white_player_id');
-      if (storedName) {
-        send({ type: 'join', name: storedName, playerId: storedId || undefined });
-      }
-    }
-  }, [step, connected, isInGame, name, send]);
 
   if (step === 'choose') {
     return (
@@ -144,7 +129,7 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
     );
   }
 
-  if (step === 'join' && !isInGame) {
+  if (step === 'join' && !isInGame && !joined) {
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4 px-4 w-full max-w-sm">
         <JoinGameForm joinCode={joinCode} setJoinCode={setJoinCode} onSubmit={handleJoin} />
@@ -153,43 +138,38 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
     );
   }
 
-  if (step === 'playing') {
-    return (
-      <>
-        {!connected && <div className="mb-2 text-sm text-amber-400">{isReconnecting ? 'Reconnecting...' : 'Connecting...'}</div>}
-        <Notifications error={error} toast={toast} />
+  return (
+    <>
+      <Notifications error={error} toast={null} />
 
-        {showHostControls && (
-          <HostControls
-            players={gameState.players}
-            myId={gameState.myId}
-            onReset={() => sendRaw({ type: 'reset_game' })}
-            onKick={(id) => send({ type: 'kick_player', targetId: id })}
-          />
-        )}
+      {showHostControls && (
+        <HostControls
+          players={gameState.players}
+          myId={gameState.myId}
+          onReset={() => sendRaw({ type: 'reset_game' })}
+          onKick={(id) => send({ type: 'kick_player', targetId: id })}
+        />
+      )}
 
-        {gameState && isInGame && (
-          <>
-            {gameState.phase === 'lobby' && effectiveCode && (
-              <>
-                <GameCodeDisplay code={effectiveCode} />
-                <div className="mb-4">
-                  <BackButton onBack={onBack} />
-                </div>
-              </>
-            )}
-            <GamePhaseRenderer state={gameState} onSend={send} onSendRaw={sendRaw} isOnline />
-          </>
-        )}
+      {gameState && isInGame && (
+        <>
+          {gameState.phase === 'lobby' && effectiveCode && (
+            <>
+              <GameCodeDisplay code={effectiveCode} />
+              <div className="mb-4">
+                <BackButton onBack={onBack} />
+              </div>
+            </>
+          )}
+          <GamePhaseRenderer state={gameState} onSend={send} onSendRaw={sendRaw} isOnline />
+        </>
+      )}
 
-        {gameState && !isInGame && !connected && (
-          <div className="text-white/40 text-sm">Reconnecting to game...</div>
-        )}
-      </>
-    );
-  }
-
-  return null;
+      {!gameState && step === 'playing' && (
+        <div className="text-white/40 text-sm">Loading game...</div>
+      )}
+    </>
+  );
 }
 
 function CreateGameForm({ onSubmit }: { onSubmit: (name: string) => void }) {

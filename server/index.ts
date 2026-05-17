@@ -1,26 +1,32 @@
 import express from 'express';
 import { createServer } from 'http';
-import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { handleConnection } from './ws-handler.js';
+import { handleJoin, handleGetState, handleAction } from './api-handler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
 
-const wss = new WebSocketServer({ noServer: true });
+app.use(express.json());
 
-server.on('upgrade', (req, socket, head) => {
-  const url = new URL(req.url || '', `http://${req.headers.host}`);
-  if (url.pathname !== '/ws') {
-    socket.destroy();
+app.post('/api/game', (req, res) => {
+  const result = handleJoin(req.body);
+  res.json(result);
+});
+
+app.get('/api/game', (req, res) => {
+  const code = req.query.code as string;
+  const playerId = req.query.playerId as string;
+  if (!code || !playerId) {
+    res.json({ ok: false, error: 'Missing code or playerId' });
     return;
   }
-  const gameCode = url.searchParams.get('code');
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    handleConnection(ws, gameCode);
-  });
+  res.json(handleGetState(code, playerId));
+});
+
+app.post('/api/game/action', (req, res) => {
+  res.json(handleAction(req.body));
 });
 
 const distPath = join(__dirname, '..', 'dist');

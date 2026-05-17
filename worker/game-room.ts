@@ -4,7 +4,6 @@ import {
   createGame,
   addPlayer,
   reconnectPlayer,
-  removePlayer,
   updateSettings,
   startGame,
   markWordSeen,
@@ -46,294 +45,127 @@ export class GameRoom extends DurableObject {
     await this.ctx.storage.setAlarm(Date.now() + TTL_MS);
   }
 
-  private async broadcastAndSave(): Promise<void> {
-    this.broadcast();
-    await this.saveState();
-  }
-
   async alarm(): Promise<void> {
-    const sockets = this.ctx.getWebSockets();
-    if (sockets.length > 0) {
-      await this.ctx.storage.setAlarm(Date.now() + TTL_MS);
-      return;
-    }
     await this.ctx.storage.deleteAll();
   }
 
   async fetch(request: Request): Promise<Response> {
-    const upgrade = request.headers.get('Upgrade');
-    if (upgrade !== 'websocket') {
-      return new Response('Expected WebSocket', { status: 426 });
-    }
-
     const url = new URL(request.url);
-    const gameCode = url.searchParams.get('code') || 'XXXX';
+    const gameCode = url.searchParams.get('_code') || 'XXXX';
+
     if (!this.initialized || !this.game) {
       this.game = createGame(gameCode);
       await this.saveState();
     }
 
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
-    this.ctx.acceptWebSocket(server);
+    const headers = { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' };
 
-    return new Response(null, { status: 101, webSocket: client });
-  }
-
-  async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    const raw = typeof message === 'string' ? message : new TextDecoder().decode(message);
-
-    let msg: Record<string, unknown>;
-    try {
-      msg = JSON.parse(raw);
-    } catch {
-      this.sendError(ws, 'Invalid message format');
-      return;
+    if (request.method === 'POST' && url.pathname === '/api/game') {
+      const body = await request.json() as Record<string, unknown>;
+      const result = this.handleJoin(body);
+      if (result.ok) await this.saveState();
+      return new Response(JSON.stringify(result), { headers });
     }
 
-    switch (msg.type) {
-      case 'join':
-        await this.handleJoin(ws, msg);
-        break;
-      case 'update_settings':
-        await this.handleUpdateSettings(ws, msg);
-        break;
-      case 'start_game':
-        await this.handleStartGame(ws);
-        break;
-      case 'word_seen':
-        await this.handleWordSeen(ws);
-        break;
-      case 'submit_description':
-        await this.handleSubmitDescription(ws, msg);
-        break;
-      case 'vote':
-        await this.handleVote(ws, msg);
-        break;
-      case 'continue_after_vote':
-        processVoteResult(this.game);
-        await this.broadcastAndSave();
-        break;
-      case 'guess_word':
-        await this.handleGuessWord(ws, msg);
-        break;
-      case 'play_again':
-      case 'reset_game':
-        await this.handlePlayAgain(ws);
-        break;
-      case 'kick_player':
-        await this.handleKick(ws, msg);
-        break;
-      default:
-        this.sendError(ws, 'Unknown message type');
-    }
-  }
-
-  async webSocketClose(ws: WebSocket): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (playerId) {
-      removePlayer(this.game, playerId);
-      await this.broadcastAndSave();
-    }
-  }
-
-  async webSocketError(ws: WebSocket): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (playerId) {
-      removePlayer(this.game, playerId);
-      await this.broadcastAndSave();
-    }
-  }
-
-  private getPlayerId(ws: WebSocket): string | null {
-    const attachment = ws.deserializeAttachment() as { playerId?: string } | null;
-    return attachment?.playerId ?? null;
-  }
-
-  private setPlayerId(ws: WebSocket, playerId: string): void {
-    ws.serializeAttachment({ playerId });
-  }
-
-  private broadcast(): void {
-    for (const ws of this.ctx.getWebSockets()) {
-      const playerId = this.getPlayerId(ws);
-      if (playerId) {
-        try {
-          ws.send(JSON.stringify(getClientState(this.game, playerId)));
-        } catch {
-          // connection already closed
-        }
+    if (request.method === 'GET' && url.pathname === '/api/game') {
+      const playerId = url.searchParams.get('playerId');
+      if (!playerId) {
+        return new Response(JSON.stringify({ ok: false, error: 'Missing playerId' }), { headers });
       }
+      const player = this.game.players.find((p) => p.id === playerId);
+      if (!player) {
+        return new Response(JSON.stringify({ ok: false, error: 'Player not found' }), { headers });
+      }
+      return new Response(JSON.stringify({ ok: true, state: getClientState(this.game, playerId) }), { headers });
     }
-  }
 
-  private sendTo(ws: WebSocket, msg: Record<string, unknown>): void {
-    try {
-      ws.send(JSON.stringify(msg));
-    } catch {
-      // connection already closed
+    if (request.method === 'POST' && url.pathname === '/api/game/action') {
+      const body = await request.json() as Record<string, unknown>;
+      const result = this.handleAction(body);
+      if (result.ok) await this.saveState();
+      return new Response(JSON.stringify(result), { headers });
     }
+
+    return new Response('Not found', { status: 404 });
   }
 
-  private sendError(ws: WebSocket, message: string): void {
-    this.sendTo(ws, { type: 'error', message });
-  }
-
-  private async handleJoin(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
-    const name = msg.name as string;
-    const existingId = msg.playerId as string | undefined;
+  private handleJoin(body: Record<string, unknown>): { ok: true; playerId: string; state: Record<string, unknown> } | { ok: false; error: string } {
+    const name = body.name as string;
+    const existingId = body.playerId as string | undefined;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      this.sendError(ws, 'Name is required');
-      return;
+      return { ok: false, error: 'Name is required' };
     }
 
     if (existingId) {
       const reconnected = reconnectPlayer(this.game, existingId);
       if (reconnected) {
-        this.setPlayerId(ws, existingId);
-        await this.broadcastAndSave();
-        return;
+        return { ok: true, playerId: existingId, state: getClientState(this.game, existingId) };
       }
     }
 
     const player = addPlayer(this.game, name.trim(), existingId);
     if (!player) {
       if (this.game.phase !== 'lobby') {
-        this.sendError(ws, 'Game is already in progress');
-      } else {
-        this.sendError(ws, 'Name is already taken');
+        return { ok: false, error: 'Game is already in progress' };
       }
-      return;
+      return { ok: false, error: 'Name is already taken' };
     }
 
-    this.setPlayerId(ws, player.id);
-    await this.broadcastAndSave();
+    return { ok: true, playerId: player.id, state: getClientState(this.game, player.id) };
   }
 
-  private async handleUpdateSettings(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
+  private handleAction(body: Record<string, unknown>): { ok: true; state: Record<string, unknown> } | { ok: false; error: string } {
+    const playerId = body.playerId as string;
+    const type = body.type as string;
+    if (!playerId || !type) return { ok: false, error: 'Missing playerId or type' };
 
-    const settings = msg.settings as Record<string, unknown>;
-    if (!settings) return;
-
-    if (!updateSettings(this.game, playerId, settings as { spyCount?: number; describeTimerSeconds?: number })) {
-      this.sendError(ws, 'Only the host can change settings');
-      return;
-    }
-    await this.broadcastAndSave();
-  }
-
-  private async handleStartGame(ws: WebSocket): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
-
-    if (!startGame(this.game, playerId)) {
-      this.sendError(ws, 'Cannot start game. Need at least 3 players.');
-      return;
-    }
-    await this.broadcastAndSave();
-  }
-
-  private async handleWordSeen(ws: WebSocket): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
-
-    markWordSeen(this.game, playerId);
-    await this.broadcastAndSave();
-  }
-
-  private async handleSubmitDescription(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
-
-    const text = msg.text as string;
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      this.sendError(ws, 'Description cannot be empty');
-      return;
-    }
-
-    if (!submitDescription(this.game, playerId, text)) {
-      this.sendError(ws, "It's not your turn");
-      return;
-    }
-    await this.broadcastAndSave();
-  }
-
-  private async handleVote(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
-
-    const targetId = msg.targetId as string;
-    if (!targetId) {
-      this.sendError(ws, 'Must select a player to vote for');
-      return;
-    }
-
-    const accusedRole = msg.accusedRole as 'mr_white' | 'spy' | undefined;
-    if (!submitVote(this.game, playerId, targetId, accusedRole)) {
-      this.sendError(ws, 'Invalid vote');
-      return;
-    }
-    await this.broadcastAndSave();
-  }
-
-  private async handleGuessWord(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
-
-    const word = msg.word as string;
-    if (!word || typeof word !== 'string') {
-      this.sendError(ws, 'Must provide a guess');
-      return;
-    }
-
-    if (!guessWord(this.game, playerId, word)) {
-      this.sendError(ws, 'You cannot guess right now');
-      return;
-    }
-    await this.broadcastAndSave();
-  }
-
-  private async handlePlayAgain(ws: WebSocket): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
-
-    if (!resetGame(this.game, playerId)) {
-      this.sendError(ws, 'Only the host can restart the game');
-      return;
-    }
-    await this.broadcastAndSave();
-  }
-
-  private async handleKick(ws: WebSocket, msg: Record<string, unknown>): Promise<void> {
-    const playerId = this.getPlayerId(ws);
-    if (!playerId) return;
-
-    const targetId = msg.targetId as string;
-    if (!targetId) return;
-
-    const result = kickPlayer(this.game, playerId, targetId);
-    if (!result) {
-      this.sendError(ws, 'Cannot kick this player');
-      return;
-    }
-
-    if (result === 'removed') {
-      for (const socket of this.ctx.getWebSockets()) {
-        if (this.getPlayerId(socket) === targetId) {
-          this.sendTo(socket, { type: 'toast', message: 'You have been kicked from the game', variant: 'warning' });
-          socket.close(1000, 'Kicked');
+    switch (type) {
+      case 'update_settings': {
+        const settings = body.settings as Record<string, unknown>;
+        if (!settings || !updateSettings(this.game, playerId, settings as { spyCount?: number; describeTimerSeconds?: number; strictMode?: boolean })) {
+          return { ok: false, error: 'Cannot update settings' };
         }
+        break;
       }
-    } else {
-      for (const socket of this.ctx.getWebSockets()) {
-        if (this.getPlayerId(socket) === targetId) {
-          this.sendTo(socket, { type: 'toast', message: 'You have been removed from the game', variant: 'warning' });
-        }
+      case 'start_game':
+        if (!startGame(this.game, playerId)) return { ok: false, error: 'Cannot start game' };
+        break;
+      case 'word_seen':
+        markWordSeen(this.game, playerId);
+        break;
+      case 'submit_description': {
+        const text = body.text as string;
+        if (!text || !submitDescription(this.game, playerId, text)) return { ok: false, error: 'Cannot submit' };
+        break;
       }
+      case 'vote': {
+        const targetId = body.targetId as string;
+        const accusedRole = body.accusedRole as 'mr_white' | 'spy' | undefined;
+        if (!targetId || !submitVote(this.game, playerId, targetId, accusedRole)) return { ok: false, error: 'Invalid vote' };
+        break;
+      }
+      case 'continue_after_vote':
+        processVoteResult(this.game);
+        break;
+      case 'guess_word': {
+        const word = body.word as string;
+        if (!word || !guessWord(this.game, playerId, word)) return { ok: false, error: 'Cannot guess' };
+        break;
+      }
+      case 'play_again':
+      case 'reset_game':
+        if (!resetGame(this.game, playerId)) return { ok: false, error: 'Cannot reset' };
+        break;
+      case 'kick_player': {
+        const target = body.targetId as string;
+        if (!target || !kickPlayer(this.game, playerId, target)) return { ok: false, error: 'Cannot kick' };
+        break;
+      }
+      default:
+        return { ok: false, error: 'Unknown action' };
     }
-    await this.broadcastAndSave();
+
+    return { ok: true, state: getClientState(this.game, playerId) };
   }
 }
