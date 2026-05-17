@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePolling } from './hooks/usePolling';
+import { useNotifyTurn } from './hooks/useNotifyTurn';
 import { useLocalGame } from './hooks/useLocalGame';
 import { PlayerList } from './components/lobby/PlayerList';
 import { GameSettings } from './components/lobby/GameSettings';
@@ -93,6 +94,7 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
 
   const pollingCode = step === 'playing' ? (initialCode || null) : null;
   const { gameState, error, joined, join, send, sendRaw } = usePolling(pollingCode);
+  useNotifyTurn(gameState);
 
   const isInGame = gameState?.myId && gameState.players.some((p) => p.id === gameState.myId);
   const showHostControls = gameState && isInGame && gameState.isHost && gameState.phase !== 'lobby';
