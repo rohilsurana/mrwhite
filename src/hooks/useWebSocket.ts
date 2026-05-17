@@ -13,22 +13,28 @@ function sendMessage(ws: WebSocket | null, msg: ClientMessage | Record<string, u
 export function useWebSocket(gameCode: string | null) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const retryDelay = useRef(500);
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: string } | null>(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    let stopped = false;
+
     function connect() {
+      if (stopped) return;
       if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-      const url = gameCode ? `${WS_BASE}?code=${gameCode}` : WS_BASE;
+      const code = gameCode || sessionStorage.getItem('mr_white_game_code');
+      const url = code ? `${WS_BASE}?code=${code}` : WS_BASE;
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
       ws.onopen = () => {
         setConnected(true);
         setError(null);
+        retryDelay.current = 500;
 
         const playerId = sessionStorage.getItem('mr_white_player_id');
         const playerName = sessionStorage.getItem('mr_white_player_name');
@@ -60,7 +66,10 @@ export function useWebSocket(gameCode: string | null) {
 
       ws.onclose = () => {
         setConnected(false);
-        reconnectTimer.current = setTimeout(connect, 2000);
+        if (!stopped) {
+          reconnectTimer.current = setTimeout(connect, retryDelay.current);
+          retryDelay.current = Math.min(retryDelay.current * 1.5, 5000);
+        }
       };
 
       ws.onerror = () => {
@@ -70,6 +79,7 @@ export function useWebSocket(gameCode: string | null) {
 
     connect();
     return () => {
+      stopped = true;
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
       wsRef.current = null;

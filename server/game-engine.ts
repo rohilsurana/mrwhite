@@ -208,7 +208,7 @@ function skipDeadPlayers(game: GameState): void {
 function getAliveTurnOrder(game: GameState): string[] {
   return game.turnOrder.filter((id) => {
     const p = game.players.find((pl) => pl.id === id);
-    return p?.isAlive && p?.isConnected;
+    return p?.isAlive;
   });
 }
 
@@ -264,7 +264,7 @@ export function submitVote(game: GameState, voterId: string, targetId: string, a
   game.votedThisRound.add(voterId);
   if (accusedRole) game.accusations[voterId] = accusedRole;
 
-  const alivePlayers = game.players.filter((p) => p.isAlive && p.isConnected);
+  const alivePlayers = game.players.filter((p) => p.isAlive);
   if (game.votedThisRound.size >= alivePlayers.length) {
     tallyVotes(game);
   }
@@ -442,7 +442,7 @@ export function kickPlayer(game: GameState, hostId: string, targetId: string): '
   }
 
   if (game.phase === 'voting') {
-    const alivePlayers = game.players.filter((p) => p.isAlive && p.isConnected);
+    const alivePlayers = game.players.filter((p) => p.isAlive);
     if (game.votedThisRound.size >= alivePlayers.length && alivePlayers.length > 0) {
       tallyVotes(game);
     }
