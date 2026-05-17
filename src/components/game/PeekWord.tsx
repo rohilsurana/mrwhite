@@ -3,14 +3,13 @@ import type { ClientGameState } from '../../lib/types';
 
 export function PeekWord({ state }: { state: ClientGameState }) {
   const [visible, setVisible] = useState(false);
-
-  if (state.myRole === 'mr_white' || !state.myWord) return null;
+  const isMrWhite = state.myRole === 'mr_white';
 
   return (
     <div className="fixed bottom-4 left-4 z-50">
       {visible && (
-        <div className="absolute bottom-12 left-0 glass px-4 py-2 rounded-xl text-white font-bold text-lg whitespace-nowrap">
-          {state.myWord}
+        <div className={`absolute bottom-12 left-0 glass px-4 py-2 rounded-xl font-bold text-lg whitespace-nowrap ${isMrWhite ? 'text-red-400' : 'text-white'}`}>
+          {isMrWhite ? 'You are Mr. White!' : state.myWord}
         </div>
       )}
       <button
