@@ -1,10 +1,28 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '../ui/Button';
 import type { ClientGameState } from '../../lib/types';
 
 export function WordReveal({ state, onConfirm }: { state: ClientGameState; onConfirm: () => void }) {
+  const [confirmed, setConfirmed] = useState(false);
   const isMrWhite = state.myRole === 'mr_white';
   const waitingFor = state.players.filter((p) => !p.hasDescribed && p.isConnected);
+
+  const handleConfirm = () => {
+    setConfirmed(true);
+    onConfirm();
+  };
+
+  if (confirmed) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
+        <div className="glass p-8 rounded-2xl max-w-sm w-full text-center">
+          <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/50 text-sm">Waiting for other players...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 px-4">
@@ -35,7 +53,7 @@ export function WordReveal({ state, onConfirm }: { state: ClientGameState; onCon
           </>
         )}
 
-        <Button onClick={onConfirm} className="mt-6 w-full">
+        <Button onClick={handleConfirm} className="mt-6 w-full">
           Got it
         </Button>
       </motion.div>
