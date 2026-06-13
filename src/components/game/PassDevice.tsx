@@ -4,7 +4,7 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 
 interface PassDeviceProps {
   playerName: string;
-  phase: 'word_reveal' | 'describing' | 'voting';
+  phase: 'word_reveal' | 'describing' | 'voting' | 'guess';
   onReady: () => void;
 }
 
@@ -13,6 +13,7 @@ export function PassDevice({ playerName, phase, onReady }: PassDeviceProps) {
     word_reveal: 'to see your word',
     describing: 'to type your clue',
     voting: 'to cast your vote',
+    guess: 'to guess the word',
   };
   const label = labels[phase];
 

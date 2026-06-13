@@ -65,8 +65,15 @@ export function WordReveal({ state, onConfirm, singleDevice }: WordRevealProps) 
       </motion.div>
 
       {!singleDevice && waitingCount > 0 && (
-        <div className="text-sm text-white/30">
-          Waiting for {waitingCount} player{waitingCount !== 1 ? 's' : ''} to confirm...
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex gap-2 flex-wrap justify-center">
+            {state.players.filter((p) => p.isConnected).map((p) => (
+              <div key={p.id} className="flex items-center gap-1.5 text-xs">
+                <span className={p.hasSeenWord ? 'text-emerald-400' : 'text-white/20'}>{p.hasSeenWord ? '✓' : '○'}</span>
+                <span className={p.hasSeenWord ? 'text-white/30' : 'text-white/50'}>{p.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

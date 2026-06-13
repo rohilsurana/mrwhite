@@ -321,8 +321,12 @@ function LocalGame({ onBack }: { onBack: () => void }) {
           <VoteResults state={gameState} onContinue={local.continueAfterVote} />
         )}
 
-        {gameState.phase === 'mr_white_guess' && (
-          <GuessPhase state={{ ...gameState, myRole: 'mr_white' }} onSend={(msg) => { if (msg.type === 'guess_word') local.guessWord(msg.word); }} />
+        {gameState.phase === 'mr_white_guess' && activePlayer && !passReady && (
+          <PassDevice playerName={activePlayer.name} phase="guess" onReady={() => setPassReady(true)} />
+        )}
+
+        {gameState.phase === 'mr_white_guess' && passReady && (
+          <GuessPhase state={{ ...gameState, myRole: 'mr_white' }} onSend={(msg) => { if (msg.type === 'guess_word') { local.guessWord(msg.word); setPassReady(false); } }} />
         )}
 
         {gameState.phase === 'game_over' && (

@@ -81,9 +81,10 @@ export function DescriptionPhase({ state, onSend }: { state: ClientGameState; on
 }
 
 function DescriptionHistory({ descriptions, currentRound }: { descriptions: ClientGameState['descriptions']; currentRound: number }) {
-  if (descriptions.length === 0) return null;
+  const withEntries = descriptions.filter((r) => r.entries.length > 0);
+  if (withEntries.length === 0) return null;
 
-  const reversed = [...descriptions].reverse();
+  const reversed = [...withEntries].reverse();
 
   return (
     <div className="flex flex-col gap-4">

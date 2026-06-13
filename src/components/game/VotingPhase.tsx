@@ -80,7 +80,15 @@ export function VotingPhase({ state, onSend }: { state: ClientGameState; onSend:
         </>
       ) : (
         <GlassCard className="text-center">
-          <p className="text-white/60">Vote submitted. Waiting for others...</p>
+          <p className="text-white/60 mb-3">Vote submitted. Waiting for others...</p>
+          <div className="flex gap-2 flex-wrap justify-center">
+            {state.players.filter((p) => p.isAlive).map((p) => (
+              <div key={p.id} className="flex items-center gap-1.5 text-xs">
+                <span className={p.hasVoted ? 'text-emerald-400' : 'text-white/20'}>{p.hasVoted ? '✓' : '○'}</span>
+                <span className={p.hasVoted ? 'text-white/30' : 'text-white/50'}>{p.name}</span>
+              </div>
+            ))}
+          </div>
         </GlassCard>
       )}
 
