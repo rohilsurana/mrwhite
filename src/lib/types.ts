@@ -49,6 +49,7 @@ export interface ClientPlayer {
   order: number;
   hasDescribed: boolean;
   hasVoted: boolean;
+  hasSeenWord: boolean;
   revealedRole?: Role;
 }
 

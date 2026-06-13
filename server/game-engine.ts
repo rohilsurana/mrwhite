@@ -496,6 +496,7 @@ export function getClientState(game: GameState, playerId: string): Record<string
         order: p.order,
         hasDescribed: game.describedThisRound.has(p.id),
         hasVoted: game.votedThisRound.has(p.id),
+        hasSeenWord: p.hasSeenWord,
         revealedRole: isGameOver
           ? p.role
           : game.voteResult?.eliminatedPlayerId === p.id

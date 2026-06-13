@@ -289,11 +289,11 @@ function LocalGame({ onBack }: { onBack: () => void }) {
         )}
 
         {gameState.phase === 'word_reveal' && activePlayer && passReady && (
-          <WordReveal state={gameState} onConfirm={() => { local.hideAndPass(); setPassReady(false); }} />
+          <WordReveal state={gameState} onConfirm={() => { local.hideAndPass(); setPassReady(false); }} singleDevice />
         )}
 
         {gameState.phase === 'describing' && activePlayer && clueMode === 'typed' && isDescribingPass && (
-          <PassDevice playerName={activePlayer.name} phase="word_reveal" onReady={() => setPassReady(true)} />
+          <PassDevice playerName={activePlayer.name} phase="describing" onReady={() => setPassReady(true)} />
         )}
 
         {gameState.phase === 'describing' && activePlayer && clueMode === 'typed' && passReady && (

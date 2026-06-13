@@ -98,6 +98,7 @@ function toClientState(state: LocalState): ClientGameState {
     order: p.order,
     hasDescribed: state.describedThisRound.has(p.id),
     hasVoted: state.votedThisRound.has(p.id),
+    hasSeenWord: p.hasSeenWord,
     revealedRole: state.phase === 'game_over'
       ? (p.role ?? undefined)
       : state.voteResult?.eliminatedPlayerId === p.id

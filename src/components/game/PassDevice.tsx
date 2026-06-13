@@ -4,14 +4,17 @@ import { PlayerAvatar } from '../ui/PlayerAvatar';
 
 interface PassDeviceProps {
   playerName: string;
-  phase: 'word_reveal' | 'voting';
+  phase: 'word_reveal' | 'describing' | 'voting';
   onReady: () => void;
 }
 
 export function PassDevice({ playerName, phase, onReady }: PassDeviceProps) {
-  const label = phase === 'word_reveal'
-    ? 'to see your word'
-    : 'to cast your vote';
+  const labels: Record<string, string> = {
+    word_reveal: 'to see your word',
+    describing: 'to type your clue',
+    voting: 'to cast your vote',
+  };
+  const label = labels[phase];
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 px-4">

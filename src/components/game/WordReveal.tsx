@@ -3,10 +3,16 @@ import { motion } from 'framer-motion';
 import { Button } from '../ui/Button';
 import type { ClientGameState } from '../../lib/types';
 
-export function WordReveal({ state, onConfirm }: { state: ClientGameState; onConfirm: () => void }) {
+interface WordRevealProps {
+  state: ClientGameState;
+  onConfirm: () => void;
+  singleDevice?: boolean;
+}
+
+export function WordReveal({ state, onConfirm, singleDevice }: WordRevealProps) {
   const [confirmed, setConfirmed] = useState(false);
   const isMrWhite = state.myRole === 'mr_white';
-  const waitingFor = state.players.filter((p) => !p.hasDescribed && p.isConnected);
+  const waitingCount = state.players.filter((p) => !p.hasSeenWord && p.isConnected).length;
 
   const handleConfirm = () => {
     setConfirmed(true);
@@ -58,9 +64,9 @@ export function WordReveal({ state, onConfirm }: { state: ClientGameState; onCon
         </Button>
       </motion.div>
 
-      {waitingFor.length > 0 && (
+      {!singleDevice && waitingCount > 0 && (
         <div className="text-sm text-white/30">
-          Waiting for {waitingFor.length} player{waitingFor.length !== 1 ? 's' : ''} to confirm...
+          Waiting for {waitingCount} player{waitingCount !== 1 ? 's' : ''} to confirm...
         </div>
       )}
     </div>

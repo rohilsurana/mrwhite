@@ -73,7 +73,7 @@ export function VoteResults({ state, onContinue }: { state: ClientGameState; onC
             <span className="font-bold text-red-400">{eliminated.name}</span> has been eliminated!
             {eliminated.revealedRole && (
               <span className={`ml-2 ${roleLabels[eliminated.revealedRole]?.color}`}>
-                They were a {roleLabels[eliminated.revealedRole]?.text}.
+                They were {eliminated.revealedRole === 'mr_white' ? '' : 'a '}{roleLabels[eliminated.revealedRole]?.text}.
               </span>
             )}
           </p>
