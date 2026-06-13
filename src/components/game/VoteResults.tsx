@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { GlassCard } from '../ui/GlassCard';
 import { Button } from '../ui/Button';
@@ -10,7 +11,32 @@ const roleLabels: Record<string, { text: string; color: string }> = {
   spy: { text: 'Spy', color: 'text-amber-400' },
 };
 
+const AUTO_ADVANCE_SECONDS = 8;
+
+function useAutoAdvance(onContinue: () => void) {
+  const [countdown, setCountdown] = useState(AUTO_ADVANCE_SECONDS);
+  const calledRef = useRef(false);
+
+  useEffect(() => {
+    calledRef.current = false;
+    const deadline = Date.now() + AUTO_ADVANCE_SECONDS * 1000;
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((deadline - Date.now()) / 1000);
+      if (remaining <= 0 && !calledRef.current) {
+        calledRef.current = true;
+        clearInterval(interval);
+        onContinue();
+      }
+      setCountdown(Math.max(0, remaining));
+    }, 500);
+    return () => clearInterval(interval);
+  }, [onContinue]);
+
+  return countdown;
+}
+
 export function VoteResults({ state, onContinue }: { state: ClientGameState; onContinue: () => void }) {
+  const countdown = useAutoAdvance(onContinue);
   const result = state.voteResult;
   if (!result) return null;
 
@@ -80,14 +106,9 @@ export function VoteResults({ state, onContinue }: { state: ClientGameState; onC
         ) : null}
       </GlassCard>
 
-      {state.isHost && (
-        <Button onClick={onContinue} className="w-full">
-          Continue
-        </Button>
-      )}
-      {!state.isHost && (
-        <p className="text-center text-white/30 text-sm">Waiting for host to continue...</p>
-      )}
+      <Button onClick={onContinue} className="w-full">
+        Continue {countdown > 0 ? `(${countdown}s)` : ''}
+      </Button>
     </div>
   );
 }

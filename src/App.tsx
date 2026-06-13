@@ -17,6 +17,7 @@ import { PassDevice } from './components/game/PassDevice';
 import { PeekWord } from './components/game/PeekWord';
 import { HowToPlayDialog } from './components/game/HowToPlayDialog';
 import { GlassCard } from './components/ui/GlassCard';
+import { PlayerAvatar } from './components/ui/PlayerAvatar';
 import { Button } from './components/ui/Button';
 import { Input } from './components/ui/Input';
 import type { ClientGameState, ClientMessage, RoundDescriptions } from './lib/types';
@@ -160,7 +161,7 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
             </>
           )}
           <GamePhaseRenderer state={gameState} onSend={send} onSendRaw={sendRaw} isOnline />
-          {(gameState.phase === 'describing' || gameState.phase === 'voting') && (
+          {(gameState.phase === 'describing' || gameState.phase === 'discussion' || gameState.phase === 'voting') && (
             <PeekWord state={gameState} />
           )}
         </>
@@ -304,6 +305,10 @@ function LocalGame({ onBack }: { onBack: () => void }) {
           <LocalVerbalClue gameState={gameState} activeViewerId={localState.activeViewerId} onDone={local.skipTurn} />
         )}
 
+        {gameState.phase === 'discussion' && (
+          <DiscussionPhase state={gameState} onStartVoting={local.startLocalVoting} />
+        )}
+
         {gameState.phase === 'voting' && activePlayer && isVotingPass && (
           <PassDevice playerName={activePlayer.name} phase="voting" onReady={() => setPassReady(true)} />
         )}
@@ -395,6 +400,7 @@ function GamePhaseRenderer({ state, onSend, onSendRaw, isOnline }: { state: Clie
 
   if (state.phase === 'word_reveal') return <WordReveal state={state} onConfirm={() => onSend({ type: 'word_seen' })} />;
   if (state.phase === 'describing') return <DescriptionPhase state={state} onSend={onSend} />;
+  if (state.phase === 'discussion') return <DiscussionPhase state={state} onStartVoting={() => onSend({ type: 'start_voting' })} />;
   if (state.phase === 'voting') return <VotingPhase state={state} onSend={onSend} />;
   if (state.phase === 'vote_result') return <VoteResults state={state} onContinue={() => onSendRaw({ type: 'continue_after_vote' })} />;
   if (state.phase === 'mr_white_guess') return <GuessPhase state={state} onSend={onSend} />;
@@ -477,6 +483,42 @@ function ClueHistory({ descriptions }: { descriptions: RoundDescriptions[] }) {
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+function DiscussionPhase({ state, onStartVoting }: { state: ClientGameState; onStartVoting: () => void }) {
+  const currentRound = state.descriptions[state.descriptions.length - 1];
+
+  return (
+    <div className="flex flex-col gap-6 px-4 max-w-lg mx-auto w-full">
+      <div className="text-center">
+        <div className="text-sm text-white/50 mb-1">Round {state.round}</div>
+        <h2 className="text-xl font-bold text-white">Discuss the clues</h2>
+        <p className="text-white/40 text-sm mt-1">Review the clues and discuss who might be Mr. White</p>
+      </div>
+
+      {currentRound && currentRound.entries.length > 0 && (
+        <GlassCard>
+          <div className="flex flex-col gap-2">
+            {currentRound.entries.map((entry, i) => (
+              <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-white/5">
+                <PlayerAvatar name={entry.playerName} size="sm" />
+                <span className="text-sm text-white/50 min-w-[50px]">{entry.playerName}</span>
+                <span className="text-white/80">"{entry.text}"</span>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+
+      {state.isHost ? (
+        <Button onClick={onStartVoting} className="w-full">
+          Start Voting
+        </Button>
+      ) : (
+        <p className="text-center text-white/30 text-sm">Waiting for host to start voting...</p>
+      )}
     </div>
   );
 }

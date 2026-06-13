@@ -9,6 +9,7 @@ import {
   markWordSeen,
   submitDescription,
   submitVote,
+  startVoting,
   processVoteResult,
   guessWord,
   resetGame,
@@ -88,6 +89,9 @@ export function handleAction(body: { gameCode: string; playerId: string; type: s
       if (!text || !submitDescription(game, playerId, text)) return { ok: false, error: 'Cannot submit description' };
       break;
     }
+    case 'start_voting':
+      if (!startVoting(game, playerId)) return { ok: false, error: 'Cannot start voting' };
+      break;
     case 'vote': {
       const targetId = body.targetId as string;
       const accusedRole = body.accusedRole as 'mr_white' | 'spy' | undefined;

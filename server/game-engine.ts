@@ -40,6 +40,7 @@ export function createGame(gameCode: string): GameState {
     describedThisRound: new Set(),
     votedThisRound: new Set(),
     accusations: {},
+    mrWhiteGuess: null,
   };
 }
 
@@ -238,9 +239,17 @@ export function submitDescription(game: GameState, playerId: string, text: strin
 
   const alive = getAliveTurnOrder(game);
   if (game.currentTurnIndex >= alive.length) {
-    startVotingPhase(game);
+    game.phase = 'discussion';
   }
 
+  return true;
+}
+
+export function startVoting(game: GameState, playerId: string): boolean {
+  if (game.phase !== 'discussion') return false;
+  const player = game.players.find((p) => p.id === playerId);
+  if (!player?.isHost) return false;
+  startVotingPhase(game);
   return true;
 }
 
@@ -375,6 +384,7 @@ export function guessWord(game: GameState, playerId: string, guess: string): boo
   const player = game.players.find((p) => p.id === playerId);
   if (!player || player.role !== 'mr_white') return false;
 
+  game.mrWhiteGuess = guess.trim();
   const normalWord = game.currentWordPair!.normal.toLowerCase().trim();
   const playerGuess = guess.toLowerCase().trim();
 
@@ -403,6 +413,7 @@ export function resetGame(game: GameState, playerId: string): boolean {
   game.describedThisRound = new Set();
   game.votedThisRound = new Set();
   game.accusations = {};
+  game.mrWhiteGuess = null;
 
   game.players.forEach((p) => {
     p.role = null;
@@ -518,6 +529,7 @@ export function getClientState(game: GameState, playerId: string): Record<string
       words: isGameOver && game.currentWordPair
         ? { normal: game.currentWordPair.normal, spy: game.currentWordPair.spy }
         : null,
+      mrWhiteGuess: isGameOver ? game.mrWhiteGuess : null,
     },
   };
 }

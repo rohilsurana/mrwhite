@@ -9,6 +9,7 @@ import {
   markWordSeen,
   submitDescription,
   submitVote,
+  startVoting,
   processVoteResult,
   guessWord,
   resetGame,
@@ -139,6 +140,9 @@ export class GameRoom extends DurableObject {
         if (!text || !submitDescription(this.game, playerId, text)) return { ok: false, error: 'Cannot submit' };
         break;
       }
+      case 'start_voting':
+        if (!startVoting(this.game, playerId)) return { ok: false, error: 'Cannot start voting' };
+        break;
       case 'vote': {
         const targetId = body.targetId as string;
         const accusedRole = body.accusedRole as 'mr_white' | 'spy' | undefined;

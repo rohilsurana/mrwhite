@@ -27,6 +27,18 @@ export function GameOver({ state, onSend }: { state: ClientGameState; onSend: (m
         </h1>
       </motion.div>
 
+      {state.mrWhiteGuess && (
+        <GlassCard>
+          <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-3">Mr. White's Guess</h3>
+          <div className={`text-center p-3 rounded-lg bg-white/5 ${state.winner === 'mr_white' ? 'border border-emerald-500/30' : 'border border-red-500/30'}`}>
+            <span className="text-xl font-bold text-white">"{state.mrWhiteGuess}"</span>
+            <span className={`block text-xs mt-1 ${state.winner === 'mr_white' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {state.winner === 'mr_white' ? 'Correct!' : 'Wrong!'}
+            </span>
+          </div>
+        </GlassCard>
+      )}
+
       {state.words && (
         <GlassCard>
           <h3 className="text-sm font-medium text-white/40 uppercase tracking-wider mb-3">The Words</h3>

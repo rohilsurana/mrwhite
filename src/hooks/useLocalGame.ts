@@ -35,6 +35,7 @@ interface LocalState {
   describedThisRound: Set<string>;
   votedThisRound: Set<string>;
   accusations: Record<string, 'mr_white' | 'spy'>;
+  mrWhiteGuess: string | null;
   activeViewerId: string | null;
   wordVisible: boolean;
   passQueue: string[];
@@ -66,6 +67,7 @@ function createLocalState(): LocalState {
     describedThisRound: new Set(),
     votedThisRound: new Set(),
     accusations: {},
+    mrWhiteGuess: null,
     activeViewerId: null,
     wordVisible: false,
     passQueue: [],
@@ -125,6 +127,7 @@ function toClientState(state: LocalState): ClientGameState {
     words: state.phase === 'game_over' && state.wordPairIndex !== null
       ? { normal: wordPairs[state.wordPairIndex].normal, spy: wordPairs[state.wordPairIndex].spy }
       : null,
+    mrWhiteGuess: state.phase === 'game_over' ? state.mrWhiteGuess : null,
   };
 }
 
@@ -271,13 +274,9 @@ export function useLocalGame() {
 
     const alive = getAliveTurnOrder(s);
     if (s.currentTurnIndex >= alive.length) {
-      s.phase = 'voting';
-      s.votes = {};
-      s.votedThisRound = new Set();
-      s.voteResult = null;
-      const aliveVoters = s.players.filter((p) => p.isAlive);
-      s.passQueue = aliveVoters.map((p) => p.id);
-      s.activeViewerId = s.passQueue[0];
+      s.phase = 'discussion';
+      s.activeViewerId = null;
+      s.passQueue = [];
     } else {
       s.activeViewerId = alive[s.currentTurnIndex];
     }
@@ -297,6 +296,21 @@ export function useLocalGame() {
       return advanceDescribing(s, text.trim());
     });
   }, [update, advanceDescribing]);
+
+  const startLocalVoting = useCallback(() => {
+    update((s) => {
+      if (s.phase !== 'discussion') return s;
+      s.phase = 'voting';
+      s.votes = {};
+      s.votedThisRound = new Set();
+      s.voteResult = null;
+      s.accusations = {};
+      const aliveVoters = s.players.filter((p) => p.isAlive);
+      s.passQueue = aliveVoters.map((p) => p.id);
+      s.activeViewerId = s.passQueue[0];
+      return s;
+    });
+  }, [update]);
 
   const submitVote = useCallback((targetId: string, accusedRole?: 'mr_white' | 'spy') => {
     update((s) => {
@@ -397,6 +411,7 @@ export function useLocalGame() {
   const guessWord = useCallback((guess: string) => {
     update((s) => {
       if (s.phase !== 'mr_white_guess' || s.wordPairIndex === null) return s;
+      s.mrWhiteGuess = guess.trim();
       const normalWord = wordPairs[s.wordPairIndex].normal.toLowerCase().trim();
       s.winner = guess.toLowerCase().trim() === normalWord ? 'mr_white' : 'players';
       s.phase = 'game_over';
@@ -417,6 +432,8 @@ export function useLocalGame() {
       s.turnOrder = [];
       s.describedThisRound = new Set();
       s.votedThisRound = new Set();
+      s.accusations = {};
+      s.mrWhiteGuess = null;
       s.activeViewerId = null;
       s.wordVisible = false;
       s.passQueue = [];
@@ -444,6 +461,7 @@ export function useLocalGame() {
     hideAndPass,
     skipTurn,
     submitTypedClue,
+    startLocalVoting,
     submitVote,
     continueAfterVote,
     guessWord,

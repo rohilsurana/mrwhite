@@ -10,6 +10,7 @@ export type GamePhase =
   | 'lobby'
   | 'word_reveal'
   | 'describing'
+  | 'discussion'
   | 'voting'
   | 'vote_result'
   | 'mr_white_guess'
@@ -70,6 +71,7 @@ export interface ClientGameState {
   settings: GameSettings;
   timerSeconds: number | null;
   words: { normal: string; spy: string } | null;
+  mrWhiteGuess: string | null;
 }
 
 export type ClientMessage =
@@ -78,6 +80,7 @@ export type ClientMessage =
   | { type: 'start_game' }
   | { type: 'word_seen' }
   | { type: 'submit_description'; text: string }
+  | { type: 'start_voting' }
   | { type: 'vote'; targetId: string; accusedRole?: 'mr_white' | 'spy' }
   | { type: 'guess_word'; word: string }
   | { type: 'play_again' }

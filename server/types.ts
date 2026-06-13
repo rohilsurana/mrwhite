@@ -6,6 +6,7 @@ export type GamePhase =
   | 'lobby'
   | 'word_reveal'
   | 'describing'
+  | 'discussion'
   | 'voting'
   | 'vote_result'
   | 'mr_white_guess'
@@ -65,4 +66,5 @@ export interface GameState {
   describedThisRound: Set<string>;
   votedThisRound: Set<string>;
   accusations: Record<string, 'mr_white' | 'spy'>;
+  mrWhiteGuess: string | null;
 }
