@@ -85,12 +85,15 @@ export function usePolling(gameCode: string | null) {
     applyState(result);
   }, [applyState]);
 
+  const activePhases = ['describing', 'discussion', 'voting', 'word_reveal'];
+  const pollInterval = gameState && activePhases.includes(gameState.phase) ? 500 : 1000;
+
   useEffect(() => {
     activeCodeRef.current = gameCode || sessionStorage.getItem('mr_white_game_code');
-    const interval = setInterval(poll, 1000);
+    const interval = setInterval(poll, pollInterval);
     poll();
     return () => clearInterval(interval);
-  }, [gameCode, poll]);
+  }, [gameCode, poll, pollInterval]);
 
   const send = useCallback((msg: ClientMessage) => sendAction(msg), [sendAction]);
   const sendRaw = useCallback((msg: Record<string, unknown>) => sendAction(msg), [sendAction]);

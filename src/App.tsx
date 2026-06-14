@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { usePolling } from './hooks/usePolling';
 import { useNotifyTurn } from './hooks/useNotifyTurn';
 import { useLocalGame } from './hooks/useLocalGame';
+import { usePhaseAnnouncement } from './hooks/usePhaseAnnouncement';
 import { PlayerList } from './components/lobby/PlayerList';
 import { GameSettings } from './components/lobby/GameSettings';
 import { LocalLobby } from './components/lobby/LocalLobby';
@@ -96,6 +97,7 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
   const isInGame = gameState?.myId && gameState.players.some((p) => p.id === gameState.myId);
   const showHostControls = gameState && isInGame && gameState.isHost && gameState.phase !== 'lobby';
   const effectiveCode = gameState?.gameCode;
+  const announcement = usePhaseAnnouncement(gameState?.phase);
 
   useEffect(() => {
     if (effectiveCode) {
@@ -152,6 +154,7 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
   return (
     <>
       <Notifications error={error} toast={null} />
+      <PhaseAnnouncement message={announcement} />
 
       {showHostControls && (
         <HostControls
@@ -262,6 +265,7 @@ function LocalGame({ onBack }: { onBack: () => void }) {
   const needsPass = localState.passQueue.length > 0 && !passReady;
   const isVotingPass = localState.phase === 'voting' && localState.activeViewerId && !passReady;
   const isDescribingPass = clueMode === 'typed' && localState.phase === 'describing' && !passReady;
+  const localAnnouncement = usePhaseAnnouncement(gameState.phase);
 
   if (gameState.phase === 'lobby') {
     return (
@@ -288,6 +292,7 @@ function LocalGame({ onBack }: { onBack: () => void }) {
 
     return (
       <>
+        <PhaseAnnouncement message={localAnnouncement} />
         {showControls && (
           <HostControls
             players={gameState.players}
@@ -500,6 +505,26 @@ function ClueHistory({ descriptions }: { descriptions: RoundDescriptions[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function PhaseAnnouncement({ message }: { message: string | null }) {
+  return (
+    <AnimatePresence>
+      {message && (
+        <motion.div
+          key={message}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none"
+        >
+          <div className="glass px-8 py-4 rounded-2xl">
+            <p className="text-xl font-bold text-white glow-text">{message}</p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
