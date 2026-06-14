@@ -248,7 +248,9 @@ export function submitDescription(game: GameState, playerId: string, text: strin
 export function startVoting(game: GameState, playerId: string): boolean {
   if (game.phase !== 'discussion') return false;
   const player = game.players.find((p) => p.id === playerId);
-  if (!player?.isHost) return false;
+  if (!player?.isAlive) return false;
+  const host = game.players.find((p) => p.isHost);
+  if (host?.isConnected && !player.isHost) return false;
   startVotingPhase(game);
   return true;
 }

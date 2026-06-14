@@ -17,11 +17,14 @@ export function usePolling(gameCode: string | null) {
   const [gameState, setGameState] = useState<ClientGameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
+  const [stale, setStale] = useState(false);
   const playerIdRef = useRef<string | null>(sessionStorage.getItem('mr_white_player_id'));
   const activeCodeRef = useRef(gameCode);
+  const staleCountRef = useRef(0);
 
   const applyState = useCallback((result: ApiResult) => {
     if (result.ok) {
+      staleCountRef.current = 0;
       const state = (result.state as unknown as { state: ClientGameState }).state;
       setGameState(state);
       setError(null);
@@ -34,8 +37,15 @@ export function usePolling(gameCode: string | null) {
         sessionStorage.setItem('mr_white_player_id', result.playerId);
       }
     } else {
-      setError(result.error);
-      setTimeout(() => setError(null), 4000);
+      if (result.error === 'Game not found' || result.error === 'Player not found') {
+        staleCountRef.current++;
+        if (staleCountRef.current >= 3) {
+          setStale(true);
+        }
+      } else {
+        setError(result.error);
+        setTimeout(() => setError(null), 4000);
+      }
     }
   }, []);
 
@@ -52,6 +62,8 @@ export function usePolling(gameCode: string | null) {
   }, [applyState]);
 
   const join = useCallback(async (code: string | null, name: string) => {
+    setStale(false);
+    staleCountRef.current = 0;
     const existingId = sessionStorage.getItem('mr_white_player_id');
     const result = await api<ApiResult>('/api/game', {
       method: 'POST',
@@ -83,5 +95,5 @@ export function usePolling(gameCode: string | null) {
   const send = useCallback((msg: ClientMessage) => sendAction(msg), [sendAction]);
   const sendRaw = useCallback((msg: Record<string, unknown>) => sendAction(msg), [sendAction]);
 
-  return { gameState, error, joined, join, send, sendRaw };
+  return { gameState, error, joined, stale, join, send, sendRaw };
 }

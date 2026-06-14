@@ -90,7 +90,7 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
   const [joinCode, setJoinCode] = useState(initialCode || '');
 
   const pollingCode = step === 'playing' ? (initialCode || null) : null;
-  const { gameState, error, joined, join, send, sendRaw } = usePolling(pollingCode);
+  const { gameState, error, joined, stale, join, send, sendRaw } = usePolling(pollingCode);
   useNotifyTurn(gameState);
 
   const isInGame = gameState?.myId && gameState.players.some((p) => p.id === gameState.myId);
@@ -133,6 +133,18 @@ function OnlineGame({ onBack, initialStep, initialCode }: { onBack: () => void; 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4 px-4 w-full max-w-sm">
         <JoinGameForm joinCode={joinCode} setJoinCode={setJoinCode} onSubmit={handleJoin} />
         <BackButton onBack={() => { setStep('choose'); onBack(); }} />
+      </motion.div>
+    );
+  }
+
+  if (stale) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-4 px-4 w-full max-w-sm">
+        <GlassCard className="text-center w-full">
+          <h2 className="text-lg font-semibold text-white mb-2">Game not found</h2>
+          <p className="text-white/50 text-sm mb-4">This game may have ended or expired.</p>
+          <Button onClick={onBack} className="w-full">Back to menu</Button>
+        </GlassCard>
       </motion.div>
     );
   }
@@ -516,13 +528,18 @@ function DiscussionPhase({ state, onStartVoting }: { state: ClientGameState; onS
         </GlassCard>
       )}
 
-      {state.isHost ? (
-        <Button onClick={onStartVoting} className="w-full">
-          Start Voting
-        </Button>
-      ) : (
-        <p className="text-center text-white/30 text-sm">Waiting for host to start voting...</p>
-      )}
+      {(() => {
+        const host = state.players.find((p) => p.isHost);
+        const hostOffline = host && !host.isConnected;
+        if (state.isHost || hostOffline) {
+          return (
+            <Button onClick={onStartVoting} className="w-full">
+              Start Voting
+            </Button>
+          );
+        }
+        return <p className="text-center text-white/30 text-sm">Waiting for host to start voting...</p>;
+      })()}
     </div>
   );
 }
